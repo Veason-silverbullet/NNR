@@ -169,13 +169,12 @@ class MHSA(UserEncoder):
     def forward(self, user_ID, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_category, user_subCategory, \
                 user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, user_embedding, candidate_news_representaion):
         batch_size = user_ID.size(0)
-        user_history_num = user_history_mask.sum(dim=1, keepdim=False).long()                                   # [batch_size]
         news_num = candidate_news_representaion.size(1)
         history_embedding = self.news_encoder(user_title_text, user_title_mask, user_title_entity, \
                                               user_content_text, user_content_mask, user_content_entity, \
                                               user_category, user_subCategory, user_embedding)                  # [batch_size, max_history_num, news_embedding_dim]
         h = self.multiheadAttention(history_embedding, history_embedding, history_embedding, user_history_mask) # [batch_size, max_history_num, head_num * head_dim]
-        h = F.dropout(F.relu(self.affine(h), inplace=True), training=self.training)                             # [batch_size, max_history_num, news_embedding_dim]
+        h = F.relu(F.dropout(self.affine(h), training=self.training, inplace=True), inplace=True)               # [batch_size, max_history_num, news_embedding_dim]
         user_representation = self.attention(h).unsqueeze(dim=1).repeat(1, news_num, 1)                         # [batch_size, news_num, news_embedding_dim]
         return user_representation
 
