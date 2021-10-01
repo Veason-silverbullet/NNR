@@ -178,13 +178,12 @@ class Attention(nn.Module):
 class ScaledDotProduct_CandidateAttention(nn.Module):
     def __init__(self, feature_dim: int, query_dim: int, attention_dim: int):
         super(ScaledDotProduct_CandidateAttention, self).__init__()
-        self.K = nn.Linear(in_features=feature_dim, out_features=attention_dim, bias=True)
+        self.K = nn.Linear(in_features=feature_dim, out_features=attention_dim, bias=False)
         self.Q = nn.Linear(in_features=query_dim, out_features=attention_dim, bias=True)
         self.attention_scalar = math.sqrt(float(attention_dim))
 
     def initialize(self):
         nn.init.xavier_uniform_(self.K.weight)
-        nn.init.zeros_(self.K.bias)
         nn.init.xavier_uniform_(self.Q.weight)
         nn.init.zeros_(self.Q.bias)
 
