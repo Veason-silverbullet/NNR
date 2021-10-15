@@ -38,14 +38,11 @@ class MIND_Corpus:
         if not all(list(map(lambda x:os.path.exists(x), preprocessed_data_files))):
             user_ID_dict = {'<UNK>': 0}
             news_ID_dict = {'<PAD>': 0}
-            category_dict = {} # since all category labels appear in traing set, we do not need <UNK> label
+            category_dict = {} # since all category labels appear in training set, we do not need <UNK> label
             subCategory_dict = {'<UNK>': 0}
             word_dict = {'<PAD>': 0, '<UNK>': 1}
             word_counter = collections.Counter()
             entity_dict = {'<PAD>': 0, '<UNK>': 1}
-            user_history_graph = {}            # {user_ID: history_graph}
-            user_history_category_mask = {}    # {user_ID: history_category_mask}
-            user_history_category_indices = {} # {user_ID: history_category_indices}
             news_category_dict = {}
 
             # 1. user ID dictionay
@@ -59,8 +56,8 @@ class MIND_Corpus:
 
             # 2. news ID dictionay & news category dictionay & news subCategory dictionay
             for i, prefix in enumerate([config.train_root, config.dev_root, config.test_root]):
-                with open(os.path.join(prefix, 'news.tsv'), 'r', encoding='utf-8') as train_news_f:
-                    for line in train_news_f:
+                with open(os.path.join(prefix, 'news.tsv'), 'r', encoding='utf-8') as news_f:
+                    for line in news_f:
                         news_ID, category, subCategory, title, abstract, _, title_entities, abstract_entities = line.split('\t')
                         if news_ID not in news_ID_dict:
                             news_ID_dict[news_ID] = len(news_ID_dict)
@@ -139,8 +136,8 @@ class MIND_Corpus:
             entity_embedding_vectors = torch.zeros([len(entity_dict), config.entity_embedding_dim])
             context_embedding_vectors = torch.zeros([len(entity_dict), config.context_embedding_dim])
             for prefix in [config.train_root, config.dev_root, config.test_root]:
-                with open(os.path.join(prefix, 'entity_embedding.vec'), 'r', encoding='utf-8') as train_entity_f:
-                    for line in train_entity_f:
+                with open(os.path.join(prefix, 'entity_embedding.vec'), 'r', encoding='utf-8') as entity_f:
+                    for line in entity_f:
                         if len(line.strip()) > 0:
                             terms = line.strip().split('\t')
                             assert len(terms) == config.entity_embedding_dim + 1, 'entity embedding dim does not match'
@@ -148,8 +145,8 @@ class MIND_Corpus:
                             if WikidataId in entity_dict:
                                 entity_embedding_vectors[entity_dict[WikidataId]] = torch.FloatTensor(list(map(float, terms[1:])))
             for prefix in [config.train_root, config.dev_root, config.test_root]:
-                with open(os.path.join(prefix, 'context_embedding.vec'), 'r', encoding='utf-8') as train_context_f:
-                    for line in train_context_f:
+                with open(os.path.join(prefix, 'context_embedding.vec'), 'r', encoding='utf-8') as context_f:
+                    for line in context_f:
                         if len(line.strip()) > 0:
                             terms = line.strip().split('\t')
                             assert len(terms) == config.context_embedding_dim + 1, 'context embedding dim does not match'
@@ -166,54 +163,62 @@ class MIND_Corpus:
             # 6. user history graph
             category_num = len(category_dict)
             graph_size = config.max_history_num + category_num # graph size of |V_{n}|+|V_{p}|
-            for prefix in [config.train_root, config.dev_root, config.test_root]:
-                with open(os.path.join(prefix, 'behaviors.tsv'), 'r', encoding='utf-8') as train_behaviors_f:
-                    for line in train_behaviors_f:
+            prefix_mode = ['train', 'dev', 'test']
+            user_history_graph_data = {}
+            for prefix_index, prefix in enumerate([config.train_root, config.dev_root, config.test_root]):
+                mode = prefix_mode[prefix_index]
+                user_history_num = 0
+                with open(os.path.join(prefix, 'behaviors.tsv'), 'r', encoding='utf-8') as behaviors_f:
+                    for line in behaviors_f:
+                        user_history_num += 1
+                user_history_graph = np.zeros([user_history_num, graph_size, graph_size], dtype=np.float32)
+                user_history_category_mask = np.zeros([user_history_num, category_num + 1], dtype=np.float32)
+                user_history_category_indices = np.zeros([user_history_num, config.max_history_num], dtype=np.int64)
+                with open(os.path.join(prefix, 'behaviors.tsv'), 'r', encoding='utf-8') as behaviors_f:
+                    for line_index, line in enumerate(behaviors_f):
                         impression_ID, user_ID, time, history, impressions = line.split('\t')
-                        if user_ID not in user_history_graph:
-                            if config.no_self_connection:
-                                history_graph = np.zeros([graph_size, graph_size], dtype=np.float32)
-                            else:
-                                history_graph = np.identity(graph_size, dtype=np.float32)
-                            history_category_mask = np.zeros(category_num + 1, dtype=np.float32) # extra one category index for padding news
-                            history_category_indices = np.full([config.max_history_num], category_num, dtype=np.int64)
-                            if len(history.strip()) > 0:
-                                history_news_ID = history.split(' ')
-                                history_news_num = min(len(history_news_ID), config.max_history_num)
-                                for i in range(history_news_num):
-                                    category_index = news_category_dict[history_news_ID[i]]
-                                    history_category_mask[category_index] = 1.0
-                                    history_category_indices[i] = category_index
-                                    history_graph[i, config.max_history_num + category_index] = 1 # edge of E_{p}^{1} in inter-cluster graph G2
-                                    history_graph[config.max_history_num + category_index, i] = 1 # edge of E_{p}^{1} in inter-cluster graph G2
-                                    for j in range(i + 1, history_news_num):
-                                        _category_index = news_category_dict[history_news_ID[j]]
-                                        if category_index == _category_index:
-                                            history_graph[i, j] = 1 # edge of E_{n} in intra-cluster graph G1
-                                            history_graph[j, i] = 1 # edge of E_{n} in intra-cluster graph G1
-                                        else:
-                                            history_graph[config.max_history_num + category_index, config.max_history_num + _category_index] = 1 # edge of E_{p}^{2} in inter-cluster graph G2
-                                            history_graph[config.max_history_num + _category_index, config.max_history_num + category_index] = 1 # edge of E_{p}^{2} in inter-cluster graph G2
-                                if not config.no_adjacent_normalization:
-                                    if config.gcn_normalization_type == 'asymmetric':
-                                        # Asymmetric adjacent matrix normalization: D^{-\frac{1}{2}}A
-                                        D_inv = np.zeros([graph_size, graph_size], dtype=np.float32)
-                                        np.fill_diagonal(D_inv, 1 / history_graph.sum(axis=1, keepdims=False))
-                                        history_graph = np.matmul(D_inv, history_graph)
+                        if config.no_self_connection:
+                            history_graph = np.zeros([graph_size, graph_size], dtype=np.float32)
+                        else:
+                            history_graph = np.identity(graph_size, dtype=np.float32)
+                        history_category_mask = np.zeros(category_num + 1, dtype=np.float32) # extra one category index for padding news
+                        history_category_indices = np.full([config.max_history_num], category_num, dtype=np.int64)
+                        if len(history.strip()) > 0:
+                            history_news_ID = history.split(' ')
+                            history_news_num = min(len(history_news_ID), config.max_history_num)
+                            for i in range(history_news_num):
+                                category_index = news_category_dict[history_news_ID[i]]
+                                history_category_mask[category_index] = 1.0
+                                history_category_indices[i] = category_index
+                                history_graph[i, config.max_history_num + category_index] = 1 # edge of E_{p}^{1} in inter-cluster graph G2
+                                history_graph[config.max_history_num + category_index, i] = 1 # edge of E_{p}^{1} in inter-cluster graph G2
+                                for j in range(i + 1, history_news_num):
+                                    _category_index = news_category_dict[history_news_ID[j]]
+                                    if category_index == _category_index:
+                                        history_graph[i, j] = 1 # edge of E_{n} in intra-cluster graph G1
+                                        history_graph[j, i] = 1 # edge of E_{n} in intra-cluster graph G1
                                     else:
-                                        # Symmetric adjacent matrix normalization: D^{-\frac{1}{2}}AD^{-\frac{1}{2}}
-                                        D_inv_sqrt = np.zeros([graph_size, graph_size], dtype=np.float32)
-                                        np.fill_diagonal(D_inv_sqrt, np.sqrt(1 / history_graph.sum(axis=1, keepdims=False)))
-                                        history_graph = np.matmul(np.matmul(D_inv_sqrt, history_graph), D_inv_sqrt)
-                            user_history_graph[user_ID] = history_graph
-                            user_history_category_mask[user_ID] = history_category_mask
-                            user_history_category_indices[user_ID] = history_category_indices
+                                        history_graph[config.max_history_num + category_index, config.max_history_num + _category_index] = 1 # edge of E_{p}^{2} in inter-cluster graph G2
+                                        history_graph[config.max_history_num + _category_index, config.max_history_num + category_index] = 1 # edge of E_{p}^{2} in inter-cluster graph G2
+                            if not config.no_adjacent_normalization:
+                                if config.gcn_normalization_type == 'asymmetric':
+                                    # Asymmetric adjacent matrix normalization: D^{-\frac{1}{2}}A
+                                    D_inv = np.zeros([graph_size, graph_size], dtype=np.float32)
+                                    np.fill_diagonal(D_inv, 1 / history_graph.sum(axis=1, keepdims=False))
+                                    history_graph = np.matmul(D_inv, history_graph)
+                                else:
+                                    # Symmetric adjacent matrix normalization: D^{-\frac{1}{2}}AD^{-\frac{1}{2}}
+                                    D_inv_sqrt = np.zeros([graph_size, graph_size], dtype=np.float32)
+                                    np.fill_diagonal(D_inv_sqrt, np.sqrt(1 / history_graph.sum(axis=1, keepdims=False)))
+                                    history_graph = np.matmul(np.matmul(D_inv_sqrt, history_graph), D_inv_sqrt)
+                        user_history_graph[line_index] = history_graph
+                        user_history_category_mask[line_index] = history_category_mask
+                        user_history_category_indices[line_index] = history_category_indices
+                    user_history_graph_data[mode + '_user_history_graph'] = user_history_graph
+                    user_history_graph_data[mode + '_user_history_category_mask'] = user_history_category_mask
+                    user_history_graph_data[mode + '_user_history_category_indices'] = user_history_category_indices
             with open(user_history_graph_file, 'wb') as user_history_graph_f:
-                pickle.dump({
-                    'user_history_graph': user_history_graph,
-                    'user_history_category_mask': user_history_category_mask,
-                    'user_history_category_indices': user_history_category_indices
-                }, user_history_graph_f)
+                pickle.dump(user_history_graph_data, user_history_graph_f)
 
     def __init__(self, config: Config):
         # preprocess data
@@ -238,9 +243,15 @@ class MIND_Corpus:
             config.entity_size = len(self.entity_dict)
         with open('user_history_graph-' + str(config.max_history_num) + ('' if config.no_self_connection else '-self') + ('' if config.no_adjacent_normalization else '-normalize-' + config.gcn_normalization_type) + '.pkl', 'rb') as user_history_graph_f:
             user_history_data = pickle.load(user_history_graph_f)
-            self.user_history_graph = user_history_data['user_history_graph']
-            self.user_history_category_mask = user_history_data['user_history_category_mask']
-            self.user_history_category_indices = user_history_data['user_history_category_indices']
+            self.train_user_history_graph = user_history_data['train_user_history_graph']
+            self.train_user_history_category_mask = user_history_data['train_user_history_category_mask']
+            self.train_user_history_category_indices = user_history_data['train_user_history_category_indices']
+            self.dev_user_history_graph = user_history_data['dev_user_history_graph']
+            self.dev_user_history_category_mask = user_history_data['dev_user_history_category_mask']
+            self.dev_user_history_category_indices = user_history_data['dev_user_history_category_indices']
+            self.test_user_history_graph = user_history_data['test_user_history_graph']
+            self.test_user_history_category_mask = user_history_data['test_user_history_category_mask']
+            self.test_user_history_category_indices = user_history_data['test_user_history_category_indices']
 
         # meta data
         self.negative_sample_num = config.negative_sample_num                                           # negative sample number for training
@@ -255,10 +266,10 @@ class MIND_Corpus:
         self.news_abstract_text = np.zeros([self.news_num, self.max_abstract_length], dtype=np.int32)   # [news_num, max_abstract_length]
         self.news_abstract_mask = np.zeros([self.news_num, self.max_abstract_length], dtype=np.float32) # [news_num, max_abstract_length]
         self.news_abstract_entity = np.zeros([self.news_num, self.max_abstract_length], dtype=np.int32) # [news_num, max_abstract_length]
-        self.train_behaviors = []                                                                       # [user_ID, [history], [history_mask], click impression, [non-click impressions], history_graph_key]
-        self.dev_behaviors = []                                                                         # [user_ID, [history], [history_mask], history_graph_key, candidate_news_ID]
+        self.train_behaviors = []                                                                       # [user_ID, [history], [history_mask], click impression, [non-click impressions], behavior_index]
+        self.dev_behaviors = []                                                                         # [user_ID, [history], [history_mask], candidate_news_ID, behavior_index]
         self.dev_indices = []                                                                           # index for dev
-        self.test_behaviors = []                                                                        # [user_ID, [history], [history_mask], history_graph_key, candidate_news_ID]
+        self.test_behaviors = []                                                                        # [user_ID, [history], [history_mask], candidate_news_ID, behavior_index]
         self.test_indices = []                                                                          # index for test
         self.title_word_num = 0
         self.abstract_word_num = 0
@@ -343,7 +354,7 @@ class MIND_Corpus:
 
         # generate behavior meta data
         with open(os.path.join(config.train_root, 'behaviors.tsv'), 'r', encoding='utf-8') as train_behaviors_f:
-            for line in train_behaviors_f:
+            for behavior_index, line in enumerate(train_behaviors_f):
                 impression_ID, user_ID, time, history, impressions = line.split('\t')
                 click_impressions = []
                 non_click_impressions = []
@@ -359,10 +370,10 @@ class MIND_Corpus:
                     user_history_mask = np.zeros([self.max_history_num], dtype=np.float32)
                     user_history_mask[:min(len(history), self.max_history_num)] = 1.0
                     for click_impression in click_impressions:
-                        self.train_behaviors.append([self.user_ID_dict[user_ID], user_history, user_history_mask, click_impression, non_click_impressions, user_ID])
+                        self.train_behaviors.append([self.user_ID_dict[user_ID], user_history, user_history_mask, click_impression, non_click_impressions, behavior_index])
                 else:
                     for click_impression in click_impressions:
-                        self.train_behaviors.append([self.user_ID_dict[user_ID], [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), click_impression, non_click_impressions, user_ID])
+                        self.train_behaviors.append([self.user_ID_dict[user_ID], [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), click_impression, non_click_impressions, behavior_index])
         with open(os.path.join(config.dev_root, 'behaviors.tsv'), 'r', encoding='utf-8') as dev_behaviors_f:
             for dev_ID, line in enumerate(dev_behaviors_f):
                 impression_ID, user_ID, time, history, impressions = line.split('\t')
@@ -374,11 +385,11 @@ class MIND_Corpus:
                     user_history_mask[:min(len(history), self.max_history_num)] = 1.0
                     for impression in impressions.strip().split(' '):
                         self.dev_indices.append(dev_ID)
-                        self.dev_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, user_history, user_history_mask, user_ID, self.news_ID_dict[impression[:-2]]])
+                        self.dev_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, user_history, user_history_mask, self.news_ID_dict[impression[:-2]], dev_ID])
                 else:
                     for impression in impressions.strip().split(' '):
                         self.dev_indices.append(dev_ID)
-                        self.dev_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), user_ID, self.news_ID_dict[impression[:-2]]])
+                        self.dev_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), self.news_ID_dict[impression[:-2]], dev_ID])
         with open(os.path.join(config.test_root, 'behaviors.tsv'), 'r', encoding='utf-8') as test_behaviors_f:
             for test_ID, line in enumerate(test_behaviors_f):
                 impression_ID, user_ID, time, history, impressions = line.split('\t')
@@ -390,8 +401,8 @@ class MIND_Corpus:
                     user_history_mask[:min(len(history), self.max_history_num)] = 1.0
                     for impression in impressions.strip().split(' '):
                         self.test_indices.append(test_ID)
-                        self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, user_history, user_history_mask, user_ID, self.news_ID_dict[impression[:-2]]])
+                        self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, user_history, user_history_mask, self.news_ID_dict[impression[:-2]], test_ID])
                 else:
                     for impression in impressions.strip().split(' '):
                         self.test_indices.append(test_ID)
-                        self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), user_ID, self.news_ID_dict[impression[:-2]]])
+                        self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), self.news_ID_dict[impression[:-2]], test_ID])

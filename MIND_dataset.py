@@ -21,9 +21,9 @@ class MIND_Train_Dataset(data.Dataset):
         self.news_abstract_text =  corpus.news_abstract_text
         self.news_abstract_mask = corpus.news_abstract_mask
         self.news_abstract_entity = corpus.news_abstract_entity
-        self.user_history_graph = corpus.user_history_graph
-        self.user_history_category_mask = corpus.user_history_category_mask
-        self.user_history_category_indices = corpus.user_history_category_indices
+        self.user_history_graph = corpus.train_user_history_graph
+        self.user_history_category_mask = corpus.train_user_history_category_mask
+        self.user_history_category_indices = corpus.train_user_history_category_indices
         self.train_behaviors = corpus.train_behaviors
         self.train_samples = [[0 for _ in range(1 + self.negative_sample_num)] for __ in range(len(self.train_behaviors))]
         self.num = len(self.train_behaviors)
@@ -75,8 +75,8 @@ class MIND_Train_Dataset(data.Dataset):
         train_behavior = self.train_behaviors[index]
         history_index = train_behavior[1]
         sample_index = self.train_samples[index]
-        user_key = train_behavior[5]
-        return train_behavior[0], self.news_category[history_index], self.news_subCategory[history_index], self.news_title_text[history_index], self.news_title_mask[history_index], self.news_title_entity[history_index], self.news_abstract_text[history_index], self.news_abstract_mask[history_index], self.news_abstract_entity[history_index], train_behavior[2], self.user_history_graph[user_key], self.user_history_category_mask[user_key], self.user_history_category_indices[user_key], \
+        behavior_index = train_behavior[5]
+        return train_behavior[0], self.news_category[history_index], self.news_subCategory[history_index], self.news_title_text[history_index], self.news_title_mask[history_index], self.news_title_entity[history_index], self.news_abstract_text[history_index], self.news_abstract_mask[history_index], self.news_abstract_entity[history_index], train_behavior[2], self.user_history_graph[behavior_index], self.user_history_category_mask[behavior_index], self.user_history_category_indices[behavior_index], \
                self.news_category[sample_index], self.news_subCategory[sample_index], self.news_title_text[sample_index], self.news_title_mask[sample_index], self.news_title_entity[sample_index], self.news_abstract_text[sample_index], self.news_abstract_mask[sample_index], self.news_abstract_entity[sample_index]
 
     def __len__(self):
@@ -94,10 +94,10 @@ class MIND_DevTest_Dataset(data.Dataset):
         self.news_abstract_text =  corpus.news_abstract_text
         self.news_abstract_mask = corpus.news_abstract_mask
         self.news_abstract_entity = corpus.news_abstract_entity
-        self.user_history_graph = corpus.user_history_graph
-        self.user_history_category_mask = corpus.user_history_category_mask
-        self.user_history_category_indices = corpus.user_history_category_indices
-        self.behaviors = (corpus.dev_behaviors if mode == 'dev' else corpus.test_behaviors)
+        self.user_history_graph = corpus.dev_user_history_graph if mode == 'dev' else corpus.test_user_history_graph
+        self.user_history_category_mask = corpus.dev_user_history_category_mask if mode == 'dev' else corpus.test_user_history_category_mask
+        self.user_history_category_indices = corpus.dev_user_history_category_indices if mode == 'dev' else corpus.test_user_history_category_indices
+        self.behaviors = corpus.dev_behaviors if mode == 'dev' else corpus.test_behaviors
         self.num = len(self.behaviors)
 
     # user_ID                        : [1]
@@ -124,9 +124,9 @@ class MIND_DevTest_Dataset(data.Dataset):
     def __getitem__(self, index):
         behavior = self.behaviors[index]
         history_index = behavior[1]
-        user_key = behavior[3]
-        candidate_news_index = behavior[4]
-        return behavior[0], self.news_category[history_index], self.news_subCategory[history_index], self.news_title_text[history_index], self.news_title_mask[history_index], self.news_title_entity[history_index], self.news_abstract_text[history_index], self.news_abstract_mask[history_index], self.news_abstract_entity[history_index], behavior[2], self.user_history_graph[user_key], self.user_history_category_mask[user_key], self.user_history_category_indices[user_key], \
+        candidate_news_index = behavior[3]
+        behavior_index = behavior[4]
+        return behavior[0], self.news_category[history_index], self.news_subCategory[history_index], self.news_title_text[history_index], self.news_title_mask[history_index], self.news_title_entity[history_index], self.news_abstract_text[history_index], self.news_abstract_mask[history_index], self.news_abstract_entity[history_index], behavior[2], self.user_history_graph[behavior_index], self.user_history_category_mask[behavior_index], self.user_history_category_indices[behavior_index], \
                self.news_category[candidate_news_index], self.news_subCategory[candidate_news_index], self.news_title_text[candidate_news_index], self.news_title_mask[candidate_news_index], self.news_title_entity[candidate_news_index], self.news_abstract_text[candidate_news_index], self.news_abstract_mask[candidate_news_index], self.news_abstract_entity[candidate_news_index]
 
     def __len__(self):
