@@ -85,7 +85,7 @@ class MIND_Train_Dataset(data.Dataset):
 
 class MIND_DevTest_Dataset(data.Dataset):
     def __init__(self, corpus: MIND_Corpus, mode: str):
-        assert mode in ['dev', 'test'], 'mode must be choosen from \'dev\' or \'test\''
+        assert mode in ['dev', 'test'], 'mode must be chosen from \'dev\' or \'test\''
         self.news_category = corpus.news_category
         self.news_subCategory = corpus.news_subCategory
         self.news_title_text =  corpus.news_title_text

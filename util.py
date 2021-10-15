@@ -10,7 +10,7 @@ from evaluate import scoring
 
 
 def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, mode: str, result_file: str):
-    assert mode in ['dev', 'test'], 'mode must be choosen from \'dev\' or \'test\''
+    assert mode in ['dev', 'test'], 'mode must be chosen from \'dev\' or \'test\''
     dataset = MIND_DevTest_Dataset(mind_corpus, mode)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=batch_size // 8 if platform.system() == 'Linux' else 0, pin_memory=True)
     indices = (mind_corpus.dev_indices if mode == 'dev' else mind_corpus.test_indices)

@@ -51,7 +51,7 @@ class Trainer:
         print('Running : ' + self.model.model_name + '\t#' + str(self.run_index))
 
     def negative_log_softmax(self, logits):
-        loss = (-torch.log_softmax(logits, dim=1)[:, 0]).mean()
+        loss = (-torch.log_softmax(logits, dim=1).select(dim=1, index=0)).mean()
         return loss
 
     def negative_log_sigmoid(self, logits):
@@ -157,6 +157,7 @@ class Trainer:
 
             print('Best epoch :', self.best_dev_epoch)
             print('Best ' + self.dev_criterion + ' : ' + str(getattr(self, 'best_dev_' + self.dev_criterion)))
+            torch.cuda.empty_cache()
             if self.epoch_not_increase == 0:
                 torch.save({model.model_name: model.state_dict()}, './models/' + model.model_name + '/#' + str(self.run_index) + '/' + model.model_name + '-' + str(self.best_dev_epoch))
             if self.epoch_not_increase == self.early_stopping_epoch:
