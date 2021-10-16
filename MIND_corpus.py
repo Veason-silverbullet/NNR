@@ -185,15 +185,16 @@ class MIND_Corpus:
                         history_category_indices = np.full([config.max_history_num], category_num, dtype=np.int64)
                         if len(history.strip()) > 0:
                             history_news_ID = history.split(' ')
+                            offset = max(0, len(history_news_ID) - config.max_history_num)
                             history_news_num = min(len(history_news_ID), config.max_history_num)
                             for i in range(history_news_num):
-                                category_index = news_category_dict[history_news_ID[i]]
+                                category_index = news_category_dict[history_news_ID[i + offset]]
                                 history_category_mask[category_index] = 1.0
                                 history_category_indices[i] = category_index
                                 history_graph[i, config.max_history_num + category_index] = 1 # edge of E_{p}^{1} in inter-cluster graph G2
                                 history_graph[config.max_history_num + category_index, i] = 1 # edge of E_{p}^{1} in inter-cluster graph G2
                                 for j in range(i + 1, history_news_num):
-                                    _category_index = news_category_dict[history_news_ID[j]]
+                                    _category_index = news_category_dict[history_news_ID[j + offset]]
                                     if category_index == _category_index:
                                         history_graph[i, j] = 1 # edge of E_{n} in intra-cluster graph G1
                                         history_graph[j, i] = 1 # edge of E_{n} in intra-cluster graph G1
