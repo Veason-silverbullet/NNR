@@ -1,5 +1,5 @@
 # Neural News Recommendation
-This repository is for the paper [**Neural News Recommendation with Collaborative News Encoding and Structural User Encoding** (EMNLP-2021 Finding)](https://arxiv.org/pdf/2109.00750.pdf).
+This repository is for the paper [**Neural News Recommendation with Collaborative News Encoding and Structural User Encoding** (EMNLP-2021 Finding)](https://aclanthology.org/2021.findings-emnlp.5.pdf).
 
 
 ## Dataset Preparation

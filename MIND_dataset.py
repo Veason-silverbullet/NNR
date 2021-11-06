@@ -1,10 +1,7 @@
 from MIND_corpus import MIND_Corpus
 import time
-import json
-import pickle
 import platform
 from config import Config
-import torch
 import torch.utils.data as data
 from numpy.random import randint
 from torch.utils.data import DataLoader

@@ -2,7 +2,6 @@ from config import Config
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence
 import newsEncoders
 import userEncoders
 import variantEncoders

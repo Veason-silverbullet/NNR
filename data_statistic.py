@@ -1,5 +1,4 @@
 import os
-import json
 import collections
 import re
 pat = re.compile(r"[\w]+|[.,!?;|]")
@@ -11,9 +10,7 @@ def word_tokenize(s):
 
 
 def news_statistic(train_root, dev_root):
-    user_dict = {}
     news_dict = {}
-    word_dict = {}
     word_counter = collections.Counter()
     train_cnt, train_max_title_len, train_title_len, train_max_content_len, train_content_len = 0, 0, 0, 0, 0
     dev_cnt, dev_max_title_len, dev_title_len, dev_max_content_len, dev_content_len = 0, 0, 0, 0, 0
