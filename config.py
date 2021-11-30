@@ -37,8 +37,9 @@ class Config:
         parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
         parser.add_argument('--weight_decay', type=float, default=0, help='Optimizer weight decay')
         parser.add_argument('--gradient_clip_norm', type=float, default=4, help='Gradient clip norm (non-positive value for no clipping)')
+        parser.add_argument('--world_size', type=int, default=1, help='World size of multi-process GPU training')
         # Dev config
-        parser.add_argument('--dev_criterion', type=str, default='auc', choices=['auc', 'mrr', 'ndcg', 'ndcg10'], help='Validation criterion to select model')
+        parser.add_argument('--dev_criterion', type=str, default='auc', choices=['auc', 'mrr', 'ndcg5', 'ndcg10'], help='Validation criterion to select model')
         parser.add_argument('--early_stopping_epoch', type=int, default=5, help='Epoch number of stop training after dev result does not improve')
         # Model config
         parser.add_argument('--word_embedding_dim', type=int, default=300, choices=[50, 100, 200, 300], help='Word embedding dimension')
@@ -95,6 +96,9 @@ class Config:
         for attribute in self.attribute_dict:
             print(attribute + ' : ' + str(getattr(self, attribute)))
         print('*' * 32 + ' Experiment setting ' + '*' * 32)
+        assert self.batch_size % self.world_size == 0, 'For multi-gpu training, batch size must be divisible by world size'
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '1024'
 
 
     def set_cuda(self):

@@ -1,6 +1,5 @@
 import os
 import platform
-from config import Config
 import torch
 import torch.nn as nn
 from MIND_corpus import MIND_Corpus
@@ -63,8 +62,8 @@ def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, 
                 result[sub_score[j][1]] = j + 1
             result_f.write(('' if i == 0 else '\n') + str(i + 1) + ' ' + str(result).replace(' ', ''))
     with open('./' + mode + '/ref/truth.txt', 'r', encoding='utf-8') as truth_f, open(result_file, 'r', encoding='utf-8') as result_f:
-        auc, mrr, ndcg, ndcg10 = scoring(truth_f, result_f)
-    return auc, mrr, ndcg, ndcg10
+        auc, mrr, ndcg5, ndcg10 = scoring(truth_f, result_f)
+    return auc, mrr, ndcg5, ndcg10
 
 
 def try_to_install_torch_scatter_package():
@@ -72,7 +71,7 @@ def try_to_install_torch_scatter_package():
         import torch_scatter # already installed
     except Exception as e:
         import torch
-        torch_version = torch.__version__
+        torch_version = torch.__version__.split('+')[0]
         torch_version = torch_version[:-1] + '0' # e.g., 1.9.1 is compatible with 1.9.0
         cuda_version = None
         temp_gpu_info_file = 'gpuinfo.txt'
@@ -98,7 +97,7 @@ def try_to_install_torch_scatter_package():
         install_flag = False
         if cuda_version is not None:
             try:
-                os.system('pip install torch-scatter -f https://pytorch-geometric.com/whl/torch-%s+%s.html' % (torch_version, cuda_version))
+                os.system('pip install torch-scatter -f https://data.pyg.org/whl/torch-%s+%s.html' % (torch_version, cuda_version))
                 install_flag = True
             except Exception as _e:
                 pass

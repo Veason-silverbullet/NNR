@@ -47,7 +47,7 @@ class SUE(UserEncoder):
     def __init__(self, news_encoder: NewsEncoder, config: Config):
         super(SUE, self).__init__(news_encoder, config)
         self.attention_dim = max(config.attention_dim, self.news_embedding_dim // 4)
-        self.proxy_node_embedding = nn.Parameter(torch.zeros([config.category_num, self.news_embedding_dim], device=self.device))
+        self.proxy_node_embedding = nn.Parameter(torch.zeros([config.category_num, self.news_embedding_dim]))
         self.gcn = GCN(in_dim=self.news_embedding_dim, out_dim=self.news_embedding_dim, hidden_dim=self.news_embedding_dim, num_layers=config.gcn_layer_num, dropout=config.dropout_rate / 2, residual=not config.no_gcn_residual, layer_norm=config.gcn_layer_norm)
         self.intraCluster_K = nn.Linear(in_features=self.news_embedding_dim, out_features=self.attention_dim, bias=False)
         self.intraCluster_Q = nn.Linear(in_features=self.news_embedding_dim, out_features=self.attention_dim, bias=True)
@@ -389,12 +389,14 @@ class OMAP(UserEncoder):
         self.OMAP_head_num = config.OMAP_head_num
         self.HiFi_Ark_regularizer_coefficient = config.HiFi_Ark_regularizer_coefficient
         self.scalar = math.sqrt(float(self.news_embedding_dim))
-        self.W = nn.parameter.Parameter(torch.zeros([self.news_embedding_dim, self.OMAP_head_num], device=self.device))
-        self.J_k = torch.ones([self.OMAP_head_num, self.OMAP_head_num], device=self.device)
-        self.I_k = torch.eye(self.OMAP_head_num, device=self.device)
+        self.W = nn.parameter.Parameter(torch.zeros([self.news_embedding_dim, self.OMAP_head_num]))
+        self.J_k = torch.ones([self.OMAP_head_num, self.OMAP_head_num])
+        self.I_k = torch.eye(self.OMAP_head_num)
 
     def initialize(self):
         nn.init.orthogonal_(self.W.data)
+        self.J_k.cuda()
+        self.I_k.cuda()
 
     def forward(self, user_ID, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_category, user_subCategory, \
                 user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, user_embedding, candidate_news_representaion):

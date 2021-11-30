@@ -100,3 +100,11 @@ python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=4
 python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=5
 python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=6
 python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=7</code></pre>
+
+
+
+
+## Distributed Training
+<hr>Distributed training is supported. If you would like to train NNR models on N GPUs, please set the config parameter `--world_size=N`. The batch size `batch_size` config parameter should be divisible by `world_size`, as our code equally divides the training batch size into N GPUs. For example,
+<pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --batch_size=128 --world_size=4</code></pre>
+The command above trains our model on 4 GPUs, each GPU contains the mini-batch data of 32.

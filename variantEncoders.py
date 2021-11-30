@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.nn.utils.rnn import pad_packed_sequence
-from layers import Conv1D, Attention, ScaledDotProduct_CandidateAttention, CandidateAttention, GCN
+from layers import Conv1D, Attention, ScaledDotProduct_CandidateAttention, GCN
 from util import try_to_install_torch_scatter_package
 try_to_install_torch_scatter_package()
 from torch_scatter import scatter_add, scatter_softmax # need to be installed by following `https://pytorch-scatter.readthedocs.io/en/latest`
@@ -390,7 +390,7 @@ class SUE_wo_HCA(UserEncoder):
     def __init__(self, news_encoder, config):
         super(SUE_wo_HCA, self).__init__(news_encoder, config)
         self.max_history_num = config.max_history_num
-        self.proxy_node_embedding = nn.Parameter(torch.zeros([config.category_num, self.news_embedding_dim], device=self.device))
+        self.proxy_node_embedding = nn.Parameter(torch.zeros([config.category_num, self.news_embedding_dim]))
         self.gcn = GCN(in_dim=self.news_embedding_dim, out_dim=self.news_embedding_dim, hidden_dim=self.news_embedding_dim, num_layers=config.gcn_layer_num, dropout=config.dropout_rate / 2, residual=not config.no_gcn_residual, layer_norm=config.gcn_layer_norm)
         self.attention = Attention(self.news_embedding_dim, config.attention_dim)
         self.dropout_ = nn.Dropout(p=config.dropout_rate, inplace=False)
