@@ -5,7 +5,7 @@ import torch
 import random
 import numpy as np
 import json
-from download_sample_MIND import prepare_sampled_MIND_dataset
+from prepare_MIND_dataset import prepare_MIND_200k, prepare_MIND_small, prepare_MIND_large
 
 
 class Config:
@@ -22,9 +22,7 @@ class Config:
         parser.add_argument('--seed', type=int, default=0, help='Seed for random number generator')
         parser.add_argument('--config_file', type=str, default='', help='Config file path')
         # Dataset config
-        parser.add_argument('--train_root', type=str, default='../MIND/200000/train', help='Directory root of training data')
-        parser.add_argument('--dev_root', type=str, default='../MIND/200000/dev', help='Directory root of dev data')
-        parser.add_argument('--test_root', type=str, default='../MIND/200000/test', help='Directory root of test data')
+        parser.add_argument('--dataset', type=str, default='200k', choices=['200k', 'small', 'large'], help='Dataset type')
         parser.add_argument('--tokenizer', type=str, default='MIND', choices=['MIND', 'NLTK'], help='Sentence tokenizer')
         parser.add_argument('--word_threshold', type=int, default=3, help='Word threshold')
         parser.add_argument('--max_title_length', type=int, default=32, help='Sentence truncate length for title')
@@ -80,6 +78,20 @@ class Config:
         self.attribute_dict = dict(vars(parser.parse_args()))
         for attribute in self.attribute_dict:
             setattr(self, attribute, self.attribute_dict[attribute])
+        self.train_root = '../MIND-%s/train' % self.dataset
+        self.dev_root = '../MIND-%s/dev' % self.dataset
+        self.test_root = '../MIND-%s/test' % self.dataset
+        if self.dataset == 'small': # suggested configuration for MIND small
+            self.dropout_rate = 0.3
+            self.gcn_layer_num = 3
+        elif self.dataset == '200k': # suggested configuration for MIND 200k
+            self.dropout_rate = 0.2
+            self.gcn_layer_num = 4
+            self.epoch = 10
+        else: # suggested configuration for MIND large
+            self.dropout_rate = 0.1
+            self.gcn_layer_num = 4
+            self.epoch = 10
         self.seed = self.seed if self.seed >= 0 else (int)(time.time())
         if self.config_file != '':
             if os.path.exists(self.config_file):
@@ -114,47 +126,46 @@ class Config:
 
 
     def preliminary_setup(self):
-        required_dataset_files = [
-            os.path.join(self.train_root, 'behaviors.tsv'), os.path.join(self.train_root, 'news.tsv'), os.path.join(self.train_root, 'entity_embedding.vec'), os.path.join(self.train_root, 'context_embedding.vec'),
-            os.path.join(self.dev_root, 'behaviors.tsv'), os.path.join(self.dev_root, 'news.tsv'), os.path.join(self.dev_root, 'entity_embedding.vec'), os.path.join(self.dev_root, 'context_embedding.vec'),
-            os.path.join(self.test_root, 'behaviors.tsv'), os.path.join(self.test_root, 'news.tsv'), os.path.join(self.test_root, 'entity_embedding.vec'), os.path.join(self.test_root, 'context_embedding.vec')
-        ]
-        if not all([os.path.exists(f) for f in required_dataset_files]):
-            prepare_sampled_MIND_dataset()
-            self.train_root = '../MIND/200000/train'
-            self.dev_root = '../MIND/200000/dev'
-            self.test_root = '../MIND/200000/test'
+        if not os.path.exists(self.train_root) or not os.path.exists(self.dev_root) or not os.path.exists(self.test_root):
+            exec('prepare_MIND_' % self.dataset)
 
         model_name = self.news_encoder + '-' + self.user_encoder
-        mkdirs = lambda p: os.makedirs(p) if not os.path.exists(p) else None
-        mkdirs('./configs/' + model_name)
-        mkdirs('./models/' + model_name)
-        mkdirs('./best_model/' + model_name)
-        mkdirs('./dev/ref')
-        mkdirs('./dev/res/' + model_name)
-        mkdirs('./test/ref')
-        mkdirs('./test/res/' + model_name)
-        mkdirs('./results/' + model_name)
-        if not os.path.exists('./dev/ref/truth.txt'):
+        mkdirs = lambda x: os.makedirs(x) if not os.path.exists(x) else None
+        self.config_dir = 'configs/' + self.dataset + '/' + model_name
+        self.model_dir = 'models/' + self.dataset + '/' + model_name
+        self.best_model_dir = 'best_model/' + self.dataset + '/' + model_name
+        self.dev_res_dir = 'dev/res/' + self.dataset + '/' + model_name
+        self.test_res_dir = 'test/res/' + self.dataset + '/' + model_name
+        self.result_dir = 'results/' + self.dataset + '/' + model_name
+        mkdirs(self.config_dir)
+        mkdirs(self.model_dir)
+        mkdirs(self.best_model_dir)
+        mkdirs('dev/ref')
+        mkdirs(self.dev_res_dir)
+        mkdirs('test/ref')
+        mkdirs(self.test_res_dir)
+        mkdirs(self.result_dir)
+        if not os.path.exists('dev/ref/truth-%s.txt' % self.dataset):
             with open(os.path.join(self.dev_root, 'behaviors.tsv'), 'r', encoding='utf-8') as dev_f:
-                with open('./dev/ref/truth.txt', 'w', encoding='utf-8') as truth_f:
+                with open('dev/ref/truth-%s.txt' % self.dataset, 'w', encoding='utf-8') as truth_f:
                     for dev_ID, line in enumerate(dev_f):
                         impression_ID, user_ID, time, history, impressions = line.split('\t')
                         labels = [int(impression[-1]) for impression in impressions.strip().split(' ')]
                         truth_f.write(('' if dev_ID == 0 else '\n') + str(dev_ID + 1) + ' ' + str(labels).replace(' ', ''))
-        if not os.path.exists('./test/ref/truth.txt'):
-            with open(os.path.join(self.test_root, 'behaviors.tsv'), 'r', encoding='utf-8') as test_f:
-                with open('./test/ref/truth.txt', 'w', encoding='utf-8') as truth_f:
-                    for test_ID, line in enumerate(test_f):
-                        impression_ID, user_ID, time, history, impressions = line.split('\t')
-                        labels = [int(impression[-1]) for impression in impressions.strip().split(' ')]
-                        truth_f.write(('' if test_ID == 0 else '\n') + str(test_ID + 1) + ' ' + str(labels).replace(' ', ''))
+        if self.dataset != 'large':
+            if not os.path.exists('test/ref/truth-%s.txt' % self.dataset):
+                with open(os.path.join(self.test_root, 'behaviors.tsv'), 'r', encoding='utf-8') as test_f:
+                    with open('test/ref/truth-%s.txt' % self.dataset, 'w', encoding='utf-8') as truth_f:
+                        for test_ID, line in enumerate(test_f):
+                            impression_ID, user_ID, time, history, impressions = line.split('\t')
+                            labels = [int(impression[-1]) for impression in impressions.strip().split(' ')]
+                            truth_f.write(('' if test_ID == 0 else '\n') + str(test_ID + 1) + ' ' + str(labels).replace(' ', ''))
 
 
     def __init__(self):
         self.parse_argument()
-        self.set_cuda()
         self.preliminary_setup()
+        self.set_cuda()
 
 
 if __name__ == '__main__':

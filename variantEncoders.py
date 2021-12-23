@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import pad_packed_sequence
 from layers import Conv1D, Attention, ScaledDotProduct_CandidateAttention, GCN
 from util import try_to_install_torch_scatter_package
 try_to_install_torch_scatter_package()
-from torch_scatter import scatter_add, scatter_softmax # need to be installed by following `https://pytorch-scatter.readthedocs.io/en/latest`
+from torch_scatter import scatter_sum, scatter_softmax # need to be installed by following `https://pytorch-scatter.readthedocs.io/en/latest`
 from newsEncoders import NewsEncoder
 from userEncoders import UserEncoder
 
@@ -374,7 +374,7 @@ class SUE_wo_GCN(UserEncoder):
         a = torch.bmm(K, Q).view([batch_size, news_num, self.max_history_num]) / self.d                                                       # [batch_size, news_num, max_history_num]
         alpha_intra = scatter_softmax(a, user_history_category_indices, 2).unsqueeze(dim=3)                                                   # [batch_size, news_num, max_history_num, 1]
         intra_cluster_feature = torch.zeros([batch_size, news_num, self.category_num, self.news_embedding_dim], device=self.device)           # [batch_size, news_num, category_num, news_embedding_dim]
-        intra_cluster_feature = scatter_add(alpha_intra * history_embedding, user_history_category_indices, dim=2, out=intra_cluster_feature) # [batch_size, news_num, category_num, news_embedding_dim]
+        intra_cluster_feature = scatter_sum(alpha_intra * history_embedding, user_history_category_indices, dim=2, out=intra_cluster_feature) # [batch_size, news_num, category_num, news_embedding_dim]
         # perform non-linear transformation on intra-cluster features
         intra_cluster_feature = self.dropout(F.relu(self.clusterFeatureAffine(intra_cluster_feature), inplace=True) + intra_cluster_feature)  # [batch_size, news_num, category_num, news_embedding_dim]
         # 2. Inter-cluster attention

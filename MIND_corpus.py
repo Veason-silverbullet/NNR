@@ -23,23 +23,23 @@ pat = re.compile(r"[\w]+|[.,!?;|]")
 class MIND_Corpus:
     @staticmethod
     def preprocess(config: Config):
-        user_ID_file = 'user_ID.json'
-        news_ID_file = 'news_ID.json'
-        category_file = 'category.json'
-        subCategory_file = 'subCategory.json'
-        vocabulary_file = 'vocabulary-' + str(config.word_threshold) + '-' + config.tokenizer + '-' + str(config.max_title_length) + '-' + str(config.max_abstract_length) + '.json'
-        word_embedding_file = 'word_embedding-' + str(config.word_threshold) + '-' + str(config.word_embedding_dim) + '-' + config.tokenizer + '-' + str(config.max_title_length) + '-' + str(config.max_abstract_length) + '.pkl'
-        entity_file = 'entity.json'
-        entity_embedding_file = 'entity_embedding.pkl'
-        context_embedding_file = 'context_embedding.pkl'
-        user_history_graph_file = 'user_history_graph-' + str(config.max_history_num) + ('' if config.no_self_connection else '-self') + ('' if config.no_adjacent_normalization else '-normalize-' + config.gcn_normalization_type) + '.pkl'
-        preprocessed_data_files = [user_ID_file, news_ID_file, category_file, subCategory_file, vocabulary_file, word_embedding_file, entity_file, entity_embedding_file, context_embedding_file, context_embedding_file, user_history_graph_file]
+        user_ID_file = 'user_ID-%s.json' % config.dataset
+        news_ID_file = 'news_ID-%s.json' % config.dataset
+        category_file = 'category-%s.json' % config.dataset
+        subCategory_file = 'subCategory-%s.json' % config.dataset
+        vocabulary_file = 'vocabulary-' + str(config.word_threshold) + '-' + config.tokenizer + '-' + str(config.max_title_length) + '-' + str(config.max_abstract_length) + '-' + config.dataset + '.json'
+        word_embedding_file = 'word_embedding-' + str(config.word_threshold) + '-' + str(config.word_embedding_dim) + '-' + config.tokenizer + '-' + str(config.max_title_length) + '-' + str(config.max_abstract_length) + '-' + config.dataset + '.pkl'
+        entity_file = 'entity-%s.json' % config.dataset
+        entity_embedding_file = 'entity_embedding-%s.pkl' % config.dataset
+        context_embedding_file = 'context_embedding-%s.pkl' % config.dataset
+        user_history_graph_file = 'user_history_graph-' + str(config.max_history_num) + ('' if config.no_self_connection else '-self') + ('' if config.no_adjacent_normalization else '-normalize-' + config.gcn_normalization_type) + '-' + config.dataset + '.pkl'
+        preprocessed_data_files = [user_ID_file, news_ID_file, category_file, subCategory_file, vocabulary_file, word_embedding_file, entity_file, entity_embedding_file, context_embedding_file, user_history_graph_file]
 
-        if not all(list(map(lambda x:os.path.exists(x), preprocessed_data_files))):
+        if not all(list(map(os.path.exists, preprocessed_data_files))):
             user_ID_dict = {'<UNK>': 0}
             news_ID_dict = {'<PAD>': 0}
-            category_dict = {} # since all category labels appear in training set, we do not need <UNK> label
-            subCategory_dict = {'<UNK>': 0}
+            category_dict = {}
+            subCategory_dict = {}
             word_dict = {'<PAD>': 0, '<UNK>': 1}
             word_counter = collections.Counter()
             entity_dict = {'<PAD>': 0, '<UNK>': 1}
@@ -61,11 +61,10 @@ class MIND_Corpus:
                         news_ID, category, subCategory, title, abstract, _, title_entities, abstract_entities = line.split('\t')
                         if news_ID not in news_ID_dict:
                             news_ID_dict[news_ID] = len(news_ID_dict)
-                            if i == 0: # training set
-                                if category not in category_dict:
-                                    category_dict[category] = len(category_dict)
-                                if subCategory not in subCategory_dict:
-                                    subCategory_dict[subCategory] = len(subCategory_dict)
+                            if category not in category_dict:
+                                category_dict[category] = len(category_dict)
+                            if subCategory not in subCategory_dict:
+                                subCategory_dict[subCategory] = len(subCategory_dict)
                             words = pat.findall(title.lower()) if config.tokenizer == 'MIND' else word_tokenize(title.lower())
                             for word in words:
                                 if is_number(word):
@@ -224,25 +223,25 @@ class MIND_Corpus:
     def __init__(self, config: Config):
         # preprocess data
         MIND_Corpus.preprocess(config)
-        with open('user_ID.json', 'r', encoding='utf-8') as user_ID_f:
+        with open('user_ID-%s.json' % config.dataset, 'r', encoding='utf-8') as user_ID_f:
             self.user_ID_dict = json.load(user_ID_f)
             config.user_num = len(self.user_ID_dict)
-        with open('news_ID.json', 'r', encoding='utf-8') as news_ID_f:
+        with open('news_ID-%s.json' % config.dataset, 'r', encoding='utf-8') as news_ID_f:
             self.news_ID_dict = json.load(news_ID_f)
             self.news_num = len(self.news_ID_dict)
-        with open('category.json', 'r', encoding='utf-8') as category_f:
+        with open('category-%s.json' % config.dataset, 'r', encoding='utf-8') as category_f:
             self.category_dict = json.load(category_f)
             config.category_num = len(self.category_dict)
-        with open('subCategory.json', 'r', encoding='utf-8') as subCategory_f:
+        with open('subCategory-%s.json' % config.dataset, 'r', encoding='utf-8') as subCategory_f:
             self.subCategory_dict = json.load(subCategory_f)
             config.subCategory_num = len(self.subCategory_dict)
-        with open('vocabulary-' + str(config.word_threshold) + '-' + config.tokenizer + '-' + str(config.max_title_length) + '-' + str(config.max_abstract_length) + '.json', 'r', encoding='utf-8') as vocabulary_f:
+        with open('vocabulary-' + str(config.word_threshold) + '-' + config.tokenizer + '-' + str(config.max_title_length) + '-' + str(config.max_abstract_length) + '-' + config.dataset + '.json', 'r', encoding='utf-8') as vocabulary_f:
             self.word_dict = json.load(vocabulary_f)
             config.vocabulary_size = len(self.word_dict)
-        with open('entity.json', 'r', encoding='utf-8') as entity_f:
+        with open('entity-%s.json' % config.dataset, 'r', encoding='utf-8') as entity_f:
             self.entity_dict = json.load(entity_f)
             config.entity_size = len(self.entity_dict)
-        with open('user_history_graph-' + str(config.max_history_num) + ('' if config.no_self_connection else '-self') + ('' if config.no_adjacent_normalization else '-normalize-' + config.gcn_normalization_type) + '.pkl', 'rb') as user_history_graph_f:
+        with open('user_history_graph-' + str(config.max_history_num) + ('' if config.no_self_connection else '-self') + ('' if config.no_adjacent_normalization else '-normalize-' + config.gcn_normalization_type) + '-' + config.dataset + '.pkl', 'rb') as user_history_graph_f:
             user_history_data = pickle.load(user_history_graph_f)
             self.train_user_history_graph = user_history_data['train_user_history_graph']
             self.train_user_history_category_mask = user_history_data['train_user_history_category_mask']
@@ -402,8 +401,14 @@ class MIND_Corpus:
                     user_history_mask[:min(len(history), self.max_history_num)] = 1.0
                     for impression in impressions.strip().split(' '):
                         self.test_indices.append(test_ID)
-                        self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, user_history, user_history_mask, self.news_ID_dict[impression[:-2]], test_ID])
+                        if config.dataset != 'large':
+                            self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, user_history, user_history_mask, self.news_ID_dict[impression[:-2]], test_ID])
+                        else:
+                            self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, user_history, user_history_mask, self.news_ID_dict[impression], test_ID])
                 else:
                     for impression in impressions.strip().split(' '):
                         self.test_indices.append(test_ID)
-                        self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), self.news_ID_dict[impression[:-2]], test_ID])
+                        if config.dataset != 'large':
+                            self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), self.news_ID_dict[impression[:-2]], test_ID])
+                        else:
+                            self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), self.news_ID_dict[impression], test_ID])

@@ -2,15 +2,16 @@
 This repository is for the paper [**Neural News Recommendation with Collaborative News Encoding and Structural User Encoding** (EMNLP-2021 Finding)](https://aclanthology.org/2021.findings-emnlp.5.pdf).
 
 
-## Dataset Preparation
-The experiments are conducted on the 200K-MIND dataset. Our code will try to download and sample the 200K-MIND dataset to the directory `../MIND` (see Line 119 of `config.py` and `download_sample_MIND.py`).
 
-Since the MIND dataset is quite large, if our code cannot download it successfully due to unstable network connection, please execute the shell file `download_sample_MIND.sh` instead. If the automatic download still fails, we recommend to download the MIND dataset and knowledge graph manually according to the links in `download_sample_MIND.sh`.
+## Dataset Preparation
+The experiments are conducted on the 200k-MIND dataset. Our code will try to download and sample the 200k-MIND dataset to the directory `../MIND-200k` (see Line 128 of `config.py` and `prepare_MIND_dataset.py`).
+
+Since the MIND dataset is quite large, if our code cannot download it successfully due to unstable network connection, please execute the shell file `download_extract_MIND.sh` instead. If the automatic download still fails, we recommend to download the MIND dataset and knowledge graph manually according to the links in `download_extract_MIND.sh`.
 
 Assume that now the pwd is `./NNR`, the downloaded and extracted MIND dataset should be organized as
 
-    (terminal) $ bash download_sample_MIND.sh # Assume this command is executed successfully
-    (terminal) $ cd ../MIND
+    (terminal) $ bash download_extract_MIND.sh # Assume this command is executed successfully
+    (terminal) $ cd ../MIND-200k
     (terminal) $ tree -L 2
     (terminal) $ .
                  ├── dev
@@ -103,8 +104,17 @@ python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=7</code></p
 
 
 
+## Experiments on MIND-small and MIND-large
+Experiments on MIND-small and MIND-large are available. You can specify the experiment dataset by the config parameter `--dataset=[200k,small,large] (default 200k)`.
+
+If you would like to conduct experiments on MIND-small, please set the config parameter `--dataset=small`. For `MIND-small`, we suggest the number of GCN layers of 3 and dropout rate of 0.3. Example command is as below:
+<pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --dataset=small --gcn_layer_num=3 --dropout_rate=0.3</code></pre>
+
+If you would like to conduct experiments on MIND-large, please set the config parameter `--dataset=large`. For `MIND-large`, we suggest the number of GCN layers of 4 and dropout rate of 0.1. Example command is as below:
+<pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --dataset=large --gcn_layer_num=4 --dropout_rate=0.1</code></pre>
+For MIND-large, please note that you should manually zip and submit the model prediction file to [*MIND leaderboard*](https://msnews.github.io/index.html#leaderboard) for performance evaluation. For example, having finished training, our model prediction file is at `test/large/res/best_model_CNE-SUE_#1_CNE-SUE/CNE-SUE.txt`.
 
 ## Distributed Training
-<hr>Distributed training is supported. If you would like to train NNR models on N GPUs, please set the config parameter `--world_size=N`. The batch size `batch_size` config parameter should be divisible by `world_size`, as our code equally divides the training batch size into N GPUs. For example,
+Distributed training is supported. If you would like to train NNR models on N GPUs, please set the config parameter `--world_size=N`. The batch size config parameter `batch_size` should be divisible by `world_size`, as our code equally divides the training batch size into N GPUs. For example,
 <pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --batch_size=128 --world_size=4</code></pre>
 The command above trains our model on 4 GPUs, each GPU contains the mini-batch data of 32.

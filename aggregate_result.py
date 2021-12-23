@@ -53,7 +53,7 @@ def aggregate_criteria(model_name, criteria_list, experiment_results_f):
     experiment_results_f.write('\nAvg\t%.4f\t%.4f\t%.4f\t%.4f\n' % (mean_auc, mean_mrr, mean_ndcg5, mean_ndcg10))
     return mean_auc, mean_mrr, mean_ndcg5, mean_ndcg10
 
-def genenrate_model_name():
+def list_model_name():
     model_names = []
     for news_encoder in ['CNE', 'CNN', 'MHSA', 'KCNN', 'PCNN', 'HDC', 'NAML', 'PNE', 'DAE', 'Inception', 'NAML_Title', 'NAML_Content', 'CNE_Title', 'CNE_Content', 'CNE_wo_CS', 'CNE_wo_CA']:
         for user_encoder in ['SUE', 'LSTUR', 'MHSA', 'ATT', 'CATT', 'FIM', 'ARNN', 'PUE', 'GRU', 'OMAP', 'SUE_wo_GCN', 'SUE_wo_HCA']:
@@ -61,44 +61,48 @@ def genenrate_model_name():
     return model_names
 
 def aggregate_dev_result():
-    for sub_dir in os.listdir('results'):
-        if sub_dir in genenrate_model_name():
-            with open('results/' + sub_dir + '/experiment_results-dev.csv', 'w', encoding='utf-8') as experiment_results_f:
-                experiment_results_f.write('exp_ID\tAUC\tMRR\tnDCG@5\tnDCG@10\n')
-                criteria_list = []
-                for result_file in os.listdir('results/' + sub_dir):
-                    if result_file[0] == '#' and result_file[-4:] == '-dev':
-                        with open('results/' + sub_dir + '/' + result_file, 'r', encoding='utf-8') as result_f:
-                            line = result_f.read()
-                            if len(line.strip()) != 0:
-                                run_index, auc, mrr, ndcg5, ndcg10 = line.strip().split('\t')
-                                criteria_list.append(Criteria(int(run_index[1:]), float(auc), float(mrr), float(ndcg5), float(ndcg10)))
-                if len(criteria_list) > 0:
-                    criteria_list.sort()
-                    for criteria in criteria_list:
-                        experiment_results_f.write(str(criteria) + '\n')
-                    mean_auc, mean_mrr, mean_ndcg5, mean_ndcg10 = aggregate_criteria(sub_dir, criteria_list, experiment_results_f)
+    for dataset in ['small', '200k', 'large']:
+        if os.path.exists('results/' + dataset):
+            for sub_dir in os.listdir('results/' + dataset):
+                if sub_dir in list_model_name():
+                    with open('results/' + dataset + '/' + sub_dir + '/experiment_results-dev.csv', 'w', encoding='utf-8') as experiment_results_f:
+                        experiment_results_f.write('exp_ID\tAUC\tMRR\tnDCG@5\tnDCG@10\n')
+                        criteria_list = []
+                        for result_file in os.listdir('results/' + dataset + '/' + sub_dir):
+                            if result_file[0] == '#' and result_file[-4:] == '-dev':
+                                with open('results/' + dataset + '/' + sub_dir + '/' + result_file, 'r', encoding='utf-8') as result_f:
+                                    line = result_f.read()
+                                    if len(line.strip()) != 0:
+                                        run_index, auc, mrr, ndcg5, ndcg10 = line.strip().split('\t')
+                                        criteria_list.append(Criteria(int(run_index[1:]), float(auc), float(mrr), float(ndcg5), float(ndcg10)))
+                        if len(criteria_list) > 0:
+                            criteria_list.sort()
+                            for criteria in criteria_list:
+                                experiment_results_f.write(str(criteria) + '\n')
+                            mean_auc, mean_mrr, mean_ndcg5, mean_ndcg10 = aggregate_criteria(sub_dir, criteria_list, experiment_results_f)
 
 def aggregate_test_result():
-    with open('results/overall.csv', 'w', encoding='utf-8') as overall_f:
-        for sub_dir in os.listdir('results'):
-            if sub_dir in genenrate_model_name():
-                with open('results/' + sub_dir + '/experiment_results-test.csv', 'w', encoding='utf-8') as experiment_results_f:
-                    experiment_results_f.write('exp_ID\tAUC\tMRR\tnDCG@5\tnDCG@10\n')
-                    criteria_list = []
-                    for result_file in os.listdir('results/' + sub_dir):
-                        if result_file[0] == '#' and result_file[-5:] == '-test':
-                            with open('results/' + sub_dir + '/' + result_file, 'r', encoding='utf-8') as result_f:
-                                line = result_f.read()
-                                if len(line.strip()) != 0:
-                                    run_index, auc, mrr, ndcg5, ndcg10 = line.strip().split('\t')
-                                    criteria_list.append(Criteria(int(run_index[1:]), float(auc), float(mrr), float(ndcg5), float(ndcg10)))
-                    if len(criteria_list) > 0:
-                        criteria_list.sort()
-                        for criteria in criteria_list:
-                            experiment_results_f.write(str(criteria) + '\n')
-                        mean_auc, mean_mrr, mean_ndcg5, mean_ndcg10 = aggregate_criteria(sub_dir, criteria_list, experiment_results_f)
-                        overall_f.write('%s\t%.4f\t%.4f\t%.4f\t%.4f\n' % (model_dict[sub_dir] if sub_dir in model_dict else sub_dir, mean_auc, mean_mrr, mean_ndcg5, mean_ndcg10))
+    for dataset in ['small', '200k', 'large']:
+        if os.path.exists('results/' + dataset):
+            with open('results/%s/overall.csv' % dataset, 'w', encoding='utf-8') as overall_f:
+                for sub_dir in os.listdir('results/' + dataset):
+                    if sub_dir in list_model_name():
+                        with open('results/' + dataset + '/' + sub_dir + '/experiment_results-test.csv', 'w', encoding='utf-8') as experiment_results_f:
+                            experiment_results_f.write('exp_ID\tAUC\tMRR\tnDCG@5\tnDCG@10\n')
+                            criteria_list = []
+                            for result_file in os.listdir('results/' + dataset + '/' + sub_dir):
+                                if result_file[0] == '#' and result_file[-5:] == '-test':
+                                    with open('results/' + dataset + '/' + sub_dir + '/' + result_file, 'r', encoding='utf-8') as result_f:
+                                        line = result_f.read()
+                                        if len(line.strip()) != 0:
+                                            run_index, auc, mrr, ndcg5, ndcg10 = line.strip().split('\t')
+                                            criteria_list.append(Criteria(int(run_index[1:]), float(auc), float(mrr), float(ndcg5), float(ndcg10)))
+                            if len(criteria_list) > 0:
+                                criteria_list.sort()
+                                for criteria in criteria_list:
+                                    experiment_results_f.write(str(criteria) + '\n')
+                                mean_auc, mean_mrr, mean_ndcg5, mean_ndcg10 = aggregate_criteria(sub_dir, criteria_list, experiment_results_f)
+                                overall_f.write('%s\t%.4f\t%.4f\t%.4f\t%.4f\n' % (model_dict[sub_dir] if sub_dir in model_dict else sub_dir, mean_auc, mean_mrr, mean_ndcg5, mean_ndcg10))
 
 
 if __name__ == '__main__':

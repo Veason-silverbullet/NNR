@@ -1,6 +1,5 @@
 from MIND_corpus import MIND_Corpus
 import time
-import platform
 from config import Config
 import torch.utils.data as data
 from numpy.random import randint
@@ -145,7 +144,7 @@ if __name__ == '__main__':
     end_time = time.time()
     print('load time : %.3fs' % (end_time - start_time))
     print('MIND_Train_Dataset :', len(mind_train_dataset))
-    train_dataloader = DataLoader(mind_train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=config.batch_size // 8 if platform.system() == 'Linux' else 0)
+    train_dataloader = DataLoader(mind_train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=config.batch_size // 16)
     for (user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_abstract_text, user_abstract_mask, user_abstract_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
          news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_abstract_text, news_abstract_mask, news_abstract_entity) in train_dataloader:
         print('user_ID', user_ID.size(), user_ID.dtype)
@@ -169,40 +168,9 @@ if __name__ == '__main__':
         print('news_abstract_text', news_abstract_text.size(), news_abstract_text.dtype)
         print('news_abstract_mask', news_abstract_mask.size(), news_abstract_mask.dtype)
         print('news_abstract_entity', news_abstract_entity.size(), news_abstract_entity.dtype)
-        user_ID_dict = mind_corpus.user_ID_dict
-        news_ID_dict = mind_corpus.news_ID_dict
-        category_dict = mind_corpus.category_dict
-        subCategory_dict = mind_corpus.subCategory_dict
-        word_dict = mind_corpus.word_dict
-        user_ID_dict_inv = {user_ID_dict[uID]: uID for uID in user_ID_dict}
-        news_ID_dict_inv = {news_ID_dict[nID]: nID for nID in news_ID_dict}
-        category_dict_inv = {category_dict[category]: category for category in category_dict}
-        subCategory_dict_inv = {subCategory_dict[subCategory]: subCategory for subCategory in subCategory_dict}
-        word_dict_inv = {word_dict[word]: word for word in word_dict}
-        user_ID_list = user_ID[0].tolist()
-        user_category_list = user_category[0].tolist()
-        user_subCategory_list = user_subCategory[0].tolist()
-        user_title_text_list = user_title_text[0].tolist()
-        user_title_mask_list = user_title_mask[0].tolist()
-        user_title_entity_list = user_title_entity[0].tolist()
-        user_abstract_text_list = user_abstract_text[0].tolist()
-        user_abstract_mask_list = user_abstract_mask[0].tolist()
-        user_abstract_entity_list = user_abstract_entity[0].tolist()
-        user_history_mask_list = user_history_mask[0].tolist()
-        user_history_graph_list = user_history_graph[0].tolist()
-        user_history_category_mask_list = user_history_category_mask[0].tolist()
-        user_history_category_indices_list = user_history_category_indices[0].tolist()
-        news_category_list = news_category[0].tolist()
-        news_subCategory_list = news_subCategory[0].tolist()
-        news_title_text_list = news_title_text[0].tolist()
-        news_title_mask_list = news_title_mask[0].tolist()
-        news_title_entity_list = news_title_entity[0].tolist()
-        news_abstract_text_list = news_abstract_text[0].tolist()
-        news_abstract_mask_list = news_abstract_mask[0].tolist()
-        news_abstract_entity_list = news_abstract_entity[0].tolist()
         break
     print('MIND_Dev_Dataset :', len(mind_dev_dataset))
-    dev_dataloader = DataLoader(mind_dev_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.batch_size // 8 if platform.system() == 'Linux' else 0)
+    dev_dataloader = DataLoader(mind_dev_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.batch_size // 16)
     for (user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_abstract_text, user_abstract_mask, user_abstract_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
          news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_abstract_text, news_abstract_mask, news_abstract_entity) in dev_dataloader:
         print('user_ID', user_ID.size(), user_ID.dtype)
@@ -229,7 +197,7 @@ if __name__ == '__main__':
         break
     print(len(mind_corpus.dev_indices))
     print('MIND_Test_Dataset :', len(mind_test_dataset))
-    test_dataloader = DataLoader(mind_test_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.batch_size // 8 if platform.system() == 'Linux' else 0)
+    test_dataloader = DataLoader(mind_test_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.batch_size // 16)
     for (user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_abstract_text, user_abstract_mask, user_abstract_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
          news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_abstract_text, news_abstract_mask, news_abstract_entity) in test_dataloader:
         print('user_ID', user_ID.size(), user_ID.dtype)

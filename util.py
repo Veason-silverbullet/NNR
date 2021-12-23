@@ -1,5 +1,4 @@
 import os
-import platform
 import torch
 import torch.nn as nn
 from MIND_corpus import MIND_Corpus
@@ -8,10 +7,9 @@ from torch.utils.data import DataLoader
 from evaluate import scoring
 
 
-def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, mode: str, result_file: str):
+def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, mode: str, result_file: str, dataset: str):
     assert mode in ['dev', 'test'], 'mode must be chosen from \'dev\' or \'test\''
-    dataset = MIND_DevTest_Dataset(mind_corpus, mode)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=batch_size // 8 if platform.system() == 'Linux' else 0, pin_memory=True)
+    dataloader = DataLoader(MIND_DevTest_Dataset(mind_corpus, mode), batch_size=batch_size, shuffle=False, num_workers=batch_size // 16, pin_memory=True)
     indices = (mind_corpus.dev_indices if mode == 'dev' else mind_corpus.test_indices)
     scores = torch.zeros([len(indices)]).cuda()
     index = 0
@@ -61,9 +59,12 @@ def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, 
             for j in range(len(sub_score)):
                 result[sub_score[j][1]] = j + 1
             result_f.write(('' if i == 0 else '\n') + str(i + 1) + ' ' + str(result).replace(' ', ''))
-    with open('./' + mode + '/ref/truth.txt', 'r', encoding='utf-8') as truth_f, open(result_file, 'r', encoding='utf-8') as result_f:
-        auc, mrr, ndcg5, ndcg10 = scoring(truth_f, result_f)
-    return auc, mrr, ndcg5, ndcg10
+    if dataset != 'large':
+        with open(mode + '/ref/truth-%s.txt' % dataset, 'r', encoding='utf-8') as truth_f, open(result_file, 'r', encoding='utf-8') as result_f:
+            auc, mrr, ndcg5, ndcg10 = scoring(truth_f, result_f)
+        return auc, mrr, ndcg5, ndcg10
+    else:
+        return None, None, None, None
 
 
 def try_to_install_torch_scatter_package():
@@ -105,13 +106,13 @@ def try_to_install_torch_scatter_package():
             print('torch_scatter need to be installed by following the instruction of https://pytorch-scatter.readthedocs.io/en/latest')
 
 
-def get_run_index(model: str):
-    assert os.path.exists('./results/' + model), 'result directory does not exist'
+def get_run_index(result_dir: str):
+    assert os.path.exists(result_dir), 'result directory does not exist'
     max_index = 0
-    for result_file in os.listdir('./results/' + model):
+    for result_file in os.listdir(result_dir):
         if result_file.strip()[0] == '#' and result_file.strip()[-4:] == '-dev':
             index = int(result_file.strip()[1:-4])
             max_index = max(index, max_index)
-    with open('./results/' + model + '/#' + str(max_index + 1) + '-dev', 'w', encoding='utf-8') as result_f:
+    with open(result_dir + '/#' + str(max_index + 1) + '-dev', 'w', encoding='utf-8') as result_f:
         pass
     return max_index + 1
