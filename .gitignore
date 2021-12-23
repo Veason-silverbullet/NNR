@@ -1,6 +1,5 @@
 /*.json
 /*.pkl
-/*.sh
 /logs
 /models
 /best_model
