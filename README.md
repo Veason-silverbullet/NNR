@@ -1,6 +1,6 @@
 # Neural News Recommendation
 This repository is for the paper [**Neural News Recommendation with Collaborative News Encoding and Structural User Encoding** (EMNLP-2021 Finding)](https://aclanthology.org/2021.findings-emnlp.5.pdf).
-
+<br/><br/>
 
 
 ## Dataset Preparation
@@ -33,6 +33,7 @@ Assume that now the pwd is `./NNR`, the downloaded and extracted MIND dataset sh
                  │   ├── label.txt
                  │   └── wikidata-graph.tsv
                  └── wikidata-graph.zip
+<br/>
 
 
 ## Environment Requirements
@@ -40,6 +41,7 @@ Assume that now the pwd is `./NNR`, the downloaded and extracted MIND dataset sh
 
 Our experiments require python3 and torch>=1.9.0. The [torch_scatter](https://github.com/rusty1s/pytorch_scatter) package is also neccessary. Our code will try to install it automatically (see Line 11 of `userEncoders.py`).
 If the automatic installation fails, please follow [https://github.com/rusty1s/pytorch_scatter](https://github.com/rusty1s/pytorch_scatter) to install the package manually.
+<br/><br/>
 
 
 ## Experiment Running
@@ -101,18 +103,24 @@ python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=4
 python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=5
 python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=6
 python main.py --news_encoder=CNE --user_encoder=SUE --gcn_layer_num=7</code></pre>
-
+<br/>
 
 
 ## Experiments on MIND-small and MIND-large
 Experiments on MIND-small and MIND-large are available. You can specify the experiment dataset by the config parameter `--dataset=[200k,small,large] (default 200k)`.
 
-If you would like to conduct experiments on MIND-small, please set the config parameter `--dataset=small`. For `MIND-small`, we suggest the number of GCN layers of 3 and dropout rate of 0.3. Example command is as below:
+If you would like to conduct experiments on MIND-small, please set the config parameter `--dataset=small`.
+
+For MIND-small, we suggest the number of GCN layers of 3 and dropout rate of 0.3. Example command is as below:
 <pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --dataset=small --gcn_layer_num=3 --dropout_rate=0.3</code></pre>
 
-If you would like to conduct experiments on MIND-large, please set the config parameter `--dataset=large`. For `MIND-large`, we suggest the number of GCN layers of 4 and dropout rate of 0.1. Example command is as below:
+If you would like to conduct experiments on MIND-large, please set the config parameter `--dataset=large`.
+
+For MIND-large, we suggest the number of GCN layers of 4 and dropout rate of 0.1. Example command is as below:
 <pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --dataset=large --gcn_layer_num=4 --dropout_rate=0.1</code></pre>
-For MIND-large, please note that you should manually zip and submit the model prediction file to [*MIND leaderboard*](https://msnews.github.io/index.html#leaderboard) for performance evaluation. For example, having finished training, our model prediction file is at `test/large/res/best_model_CNE-SUE_#1_CNE-SUE/CNE-SUE.txt`.
+For MIND-large, please manually zip and submit the model prediction file to [*MIND leaderboard*](https://msnews.github.io/index.html#leaderboard) for performance evaluation. For example, having finished training, our model prediction file is at `test/res/large/CNE-SUE/best_model_CNE-SUE_#1_CNE-SUE/CNE-SUE.txt`.
+<br/><br/>
+
 
 ## Distributed Training
 Distributed training is supported. If you would like to train NNR models on N GPUs, please set the config parameter `--world_size=N`. The batch size config parameter `batch_size` should be divisible by `world_size`, as our code equally divides the training batch size into N GPUs. For example,
