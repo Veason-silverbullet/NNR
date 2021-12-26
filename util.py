@@ -59,7 +59,7 @@ def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, 
             for j in range(len(sub_score)):
                 result[sub_score[j][1]] = j + 1
             result_f.write(('' if i == 0 else '\n') + str(i + 1) + ' ' + str(result).replace(' ', ''))
-    if dataset != 'large':
+    if dataset != 'large' or mode != 'test':
         with open(mode + '/ref/truth-%s.txt' % dataset, 'r', encoding='utf-8') as truth_f, open(result_file, 'r', encoding='utf-8') as result_f:
             auc, mrr, ndcg5, ndcg10 = scoring(truth_f, result_f)
         return auc, mrr, ndcg5, ndcg10
