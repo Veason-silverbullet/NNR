@@ -340,6 +340,7 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
                 torch.save({model_name: model.module.state_dict()}, model_dir + '/' + model_name + '-' + str(best_dev_epoch))
             elif epoch_not_increase > early_stopping_epoch:
                 break
+        dist.barrier()
 
     if rank == 0:
         with open('%s/%s-%s-dev_log.txt' % (dev_res_dir, model_name, config.dataset), 'w', encoding='utf-8') as f:
