@@ -235,6 +235,7 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
     for e in tqdm(range(1, epoch + 1)):
         train_dataset.negative_sampling(rank=rank)
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, num_replicas=world_size, rank=rank, shuffle=True)
+        train_sampler.set_epoch(e)
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=batch_size // 16, pin_memory=True, sampler=train_sampler)
         model.train()
         epoch_loss = 0
