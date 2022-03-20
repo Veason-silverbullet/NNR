@@ -65,7 +65,7 @@ def aggregate_dev_result():
         if os.path.exists('results/' + dataset):
             for sub_dir in os.listdir('results/' + dataset):
                 if sub_dir in list_model_name():
-                    with open('results/' + dataset + '/' + sub_dir + '/experiment_results-dev.csv', 'w', encoding='utf-8') as experiment_results_f:
+                    with open('results/' + dataset + '/' + sub_dir + '/experiment_results-dev.tsv', 'w', encoding='utf-8') as experiment_results_f:
                         experiment_results_f.write('exp_ID\tAUC\tMRR\tnDCG@5\tnDCG@10\n')
                         criteria_list = []
                         for result_file in os.listdir('results/' + dataset + '/' + sub_dir):
@@ -84,10 +84,10 @@ def aggregate_dev_result():
 def aggregate_test_result():
     for dataset in ['small', '200k', 'large']:
         if os.path.exists('results/' + dataset):
-            with open('results/%s/overall.csv' % dataset, 'w', encoding='utf-8') as overall_f:
+            with open('results/%s/overall.tsv' % dataset, 'w', encoding='utf-8') as overall_f:
                 for sub_dir in os.listdir('results/' + dataset):
                     if sub_dir in list_model_name():
-                        with open('results/' + dataset + '/' + sub_dir + '/experiment_results-test.csv', 'w', encoding='utf-8') as experiment_results_f:
+                        with open('results/' + dataset + '/' + sub_dir + '/experiment_results-test.tsv', 'w', encoding='utf-8') as experiment_results_f:
                             experiment_results_f.write('exp_ID\tAUC\tMRR\tnDCG@5\tnDCG@10\n')
                             criteria_list = []
                             for result_file in os.listdir('results/' + dataset + '/' + sub_dir):

@@ -126,8 +126,13 @@ class Config:
 
 
     def preliminary_setup(self):
-        if not os.path.exists(self.train_root) or not os.path.exists(self.dev_root) or not os.path.exists(self.test_root):
-            exec('prepare_MIND_' % self.dataset)
+        dataset_files = [
+            self.train_root + '/news.tsv', self.train_root + '/behaviors.tsv', self.train_root + '/entity_embedding.vec', self.train_root + '/context_embedding.vec', 
+            self.dev_root + '/news.tsv', self.dev_root + '/behaviors.tsv', self.dev_root + '/entity_embedding.vec', self.dev_root + '/context_embedding.vec', 
+            self.test_root + '/news.tsv', self.test_root + '/behaviors.tsv', self.test_root + '/entity_embedding.vec', self.test_root + '/context_embedding.vec'
+        ]
+        if not all(list(map(os.path.exists, dataset_files))):
+            exec('prepare_MIND_%s()' % self.dataset)
 
         model_name = self.news_encoder + '-' + self.user_encoder
         mkdirs = lambda x: os.makedirs(x) if not os.path.exists(x) else None

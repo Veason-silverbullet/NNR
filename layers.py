@@ -288,7 +288,7 @@ class GCNLayer(nn.Module):
             out = self.layer_normalization(out) # [batch_size, node_num, feature_num]
         out = F.relu(out)                       # [batch_size, node_num, feature_num]
         if self.residual:
-            out += feature                      # [batch_size, node_num, feature_num]
+            out = out + feature                 # [batch_size, node_num, feature_num]
         return out
 
 class GCN(nn.Module):

@@ -126,3 +126,20 @@ For MIND-large, please manually zip and submit the model prediction file to [*MI
 Distributed training is supported. If you would like to train NNR models on N GPUs, please set the config parameter `--world_size=N`. The batch size config parameter `batch_size` should be divisible by `world_size`, as our code equally divides the training batch size into N GPUs. For example,
 <pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --batch_size=128 --world_size=4</code></pre>
 The command above trains our model on 4 GPUs, each GPU contains the mini-batch data of 32.
+
+
+## Citation
+```
+@inproceedings{mao-etal-2021-CNE_SUE,
+    title = "Neural News Recommendation with Collaborative News Encoding and Structural User Encoding",
+    author = "Mao, Zhiming  and Zeng, Xingshan  and Wong, Kam-Fai",
+    booktitle = "Findings of the Association for Computational Linguistics: EMNLP 2021",
+    month = nov,
+    year = "2021",
+    address = "Punta Cana, Dominican Republic",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2021.findings-emnlp.5",
+    doi = "10.18653/v1/2021.findings-emnlp.5",
+    pages = "46--55"
+}
+```
