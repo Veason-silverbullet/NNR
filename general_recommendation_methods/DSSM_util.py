@@ -218,6 +218,6 @@ def compute_scores(model, dataset, batch_size, mode, result_file):
             for j in range(len(sub_score)):
                 result[sub_score[j][1]] = j + 1
             result_f.write(('' if i == 0 else '\n') + str(i + 1) + ' ' + str(result).replace(' ', ''))
-    with open('' + mode + '/ref/truth.txt', 'r', encoding='utf-8') as truth_f, open(result_file, 'r', encoding='utf-8') as result_f:
+    with open(mode + '/ref/truth.txt', 'r', encoding='utf-8') as truth_f, open(result_file, 'r', encoding='utf-8') as result_f:
         auc, mrr, ndcg, ndcg10 = scoring(truth_f, result_f)
     return auc, mrr, ndcg, ndcg10
