@@ -62,6 +62,7 @@ python main.py --news_encoder=HDC       --user_encoder=FIM   --click_predictor=F
 <pre><code>cd general_recommendation_methods
 python generate_tf_idf_feature_file.py
 python generate_libfm_data.py
+chmod -R 777 libfm
 python libfm_main.py
 python DSSM_main.py 
 python wide_deep_main.py</code></pre>

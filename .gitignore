@@ -1,3 +1,13 @@
+/general_recommendation_methods/*.txt
+/general_recommendation_methods/*.pkl
+/general_recommendation_methods/*.libfm
+/general_recommendation_methods/__pycache__
+/general_recommendation_methods/configs
+/general_recommendation_methods/dev
+/general_recommendation_methods/models
+/general_recommendation_methods/best_model
+/general_recommendation_methods/results
+/general_recommendation_methods/test
 /*.json
 /*.pkl
 /logs

@@ -1,7 +1,7 @@
 import os
+import argparse
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import pickle
-import numpy as np
 import random
 import time
 from tqdm import tqdm
@@ -10,17 +10,21 @@ from tensorflow import feature_column as fc
 import pandas as pd
 from functools import partial
 from wide_deep_util import Config, get_run_index, input_func, evaluate
-USER_WORD_ID_TFIDF_FILE = 'user_word_ID_TFIDF.pkl'
-NEWS_WORD_ID_TFIDF_FILE = 'news_word_ID_TFIDF.pkl'
-DEV_DF_FILE = 'dev_df.pkl'
-TEST_DF_FILE = 'test_df.pkl'
-DEV_INDICES_FILE = 'dev_indices.pkl'
-TEST_INDICES_FILE = 'test_indices.pkl'
+parser = argparse.ArgumentParser(description='Wide & deep')
+parser.add_argument('--dataset', type=str, default='200k', choices=['200k', 'small', 'large'], help='Dataset type')
+args = parser.parse_args()
+dataset = args.dataset
+USER_WORD_ID_TFIDF_FILE = 'user_word_ID_TFIDF-%s.pkl' % dataset
+NEWS_WORD_ID_TFIDF_FILE = 'news_word_ID_TFIDF-%s.pkl' % dataset
+DEV_DF_FILE = 'dev_df-%s.pkl' % dataset
+TEST_DF_FILE = 'test_df-%s.pkl' % dataset
+DEV_INDICES_FILE = 'dev_indices-%s.pkl' % dataset
+TEST_INDICES_FILE = 'test_indices-%s.pkl' % dataset
+tf.compat.v1.enable_eager_execution()
 
 
 def read_data(config: Config):
-    tf.compat.v1.enable_eager_execution()
-    with open('user_ID.pkl', 'rb') as user_ID_f, open('news_ID.pkl', 'rb') as news_ID_f, open('user_tfidf.pkl', 'rb') as user_tfidf_dict_f, open('news_tfidf.pkl', 'rb') as news_tfidf_dict_f, open('offset.txt', 'r', encoding='utf-8') as offset_f:
+    with open('user_ID-%s.pkl' % dataset, 'rb') as user_ID_f, open('news_ID-%s.pkl' % dataset, 'rb') as news_ID_f, open('user_tfidf-%s.pkl' % dataset, 'rb') as user_tfidf_dict_f, open('news_tfidf-%s.pkl' % dataset, 'rb') as news_tfidf_dict_f, open('offset-%s.txt' % dataset, 'r', encoding='utf-8') as offset_f:
         user_ID_dict = pickle.load(user_ID_f)
         news_ID_dict = pickle.load(news_ID_f)
         user_tfidf_dict = pickle.load(user_tfidf_dict_f)
@@ -152,7 +156,7 @@ def build_feature_columns(config: Config):
 
 def build_model(config: Config, wide_columns: list, deep_columns: list):
     return tf.estimator.DNNLinearCombinedClassifier(
-        model_dir='./models/wide_deep/#' + str(config.run_index),
+        model_dir='models/wide_deep/#' + str(config.run_index),
         config=tf.estimator.RunConfig(tf_random_seed=config.seed, log_step_count_steps=1000000000, save_checkpoints_steps=1000000000),
         linear_feature_columns=wide_columns,
         linear_optimizer=partial(tf.keras.optimizers.Adagrad, learning_rate=config.lr), # Adagrad for sparse-feature optimization
@@ -171,11 +175,11 @@ if __name__ == '__main__':
     wide_columns, deep_columns, train_positive_samples, train_negative_samples, dev_df, test_df, user_word_sparse_tensor_dict, news_word_sparse_tensor_dict, dev_indices, test_indices = read_data(config)
     with tf.device('/device:GPU:' + str(config.device_id)):
         config.run_index = get_run_index()
-        config.write_config_json('./experiment_config/wide_deep/#' + str(config.run_index) + '.json')
-        if not os.path.exists('./dev/res/wide_deep/#' + str(config.run_index)):
-            os.mkdir('./dev/res/wide_deep/#' + str(config.run_index))
-        if not os.path.exists('./test/res/wide_deep/#' + str(config.run_index)):
-            os.mkdir('./test/res/wide_deep/#' + str(config.run_index))
+        config.write_config_json('configs/wide_deep/#' + str(config.run_index) + '.json')
+        if not os.path.exists('dev/res/wide_deep/#' + str(config.run_index)):
+            os.mkdir('dev/res/wide_deep/#' + str(config.run_index))
+        if not os.path.exists('test/res/wide_deep/#' + str(config.run_index)):
+            os.mkdir('test/res/wide_deep/#' + str(config.run_index))
         print('Running : wide_deep\t#' + str(config.run_index))
         config.print_log()
         wide_deep = build_model(config, wide_columns, deep_columns)
@@ -239,7 +243,7 @@ if __name__ == '__main__':
                     print('Training : wide_deep #' + str(config.run_index) + ' completed\nDev criterions:')
                     print('Best ' + config.dev_criterion + ' : ' + str(best_result))
                     print('Test :\nAUC : %.4f\nMRR : %.4f\nnDCG@5 : %.4f\nnDCG@10 : %.4f' % (test_auc, test_mrr, test_ndcg, test_ndcg10))
-                    with open('./results/wide_deep/#%d-test' % config.run_index, 'w', encoding='utf-8') as f:
+                    with open('results/wide_deep/#%d-test' % config.run_index, 'w', encoding='utf-8') as f:
                         f.write('#' + str(config.run_index) + '\t' + str(test_auc) + '\t' + str(test_mrr) + '\t' + str(test_ndcg) + '\t' + str(test_ndcg10) + '\n')
                     break
         except tf.estimator.NanLossDuringTrainingError:

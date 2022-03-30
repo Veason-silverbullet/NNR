@@ -49,10 +49,10 @@ def aggregate_criteria(model_name, criteria_list, experiment_results_f, er_f):
     er_f.write('%s\t#%d\t%.4f\t%.4f\t%.4f\t%.4f\n' % (model_name, best_run_index, best_auc, best_mrr, best_ndcg5, best_ndcg10))
 
 def aggregate_test_result():
-    with open('results/experiment_results-test.csv', 'w', encoding='utf-8') as er_f:
+    with open('results/experiment_results-test.tsv', 'w', encoding='utf-8') as er_f:
         for sub_dir in os.listdir('results'):
             if sub_dir in ['libfm', 'DSSM', 'wide_deep']:
-                with open('results/' + sub_dir + '/experiment_results-test.csv', 'w', encoding='utf-8') as experiment_results_f:
+                with open('results/' + sub_dir + '/experiment_results-test.tsv', 'w', encoding='utf-8') as experiment_results_f:
                     experiment_results_f.write('exp_ID\tAUC\tMRR\tnDCG@5\tnDCG@10\n')
                     criteria_list = []
                     for result_file in os.listdir('results/' + sub_dir):

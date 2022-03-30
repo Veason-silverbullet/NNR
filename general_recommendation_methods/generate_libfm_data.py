@@ -3,14 +3,13 @@ import pickle
 import argparse
 import random
 parser = argparse.ArgumentParser(description='Generate libfm data')
-parser.add_argument('--train_root', type=str, default='../../MIND/200000/train', help='Directory root of train data')
-parser.add_argument('--dev_root', type=str, default='../../MIND/200000/dev', help='Directory root of dev data')
-parser.add_argument('--test_root', type=str, default='../../MIND/200000/test', help='Directory root of test data')
+parser.add_argument('--dataset', type=str, default='200k', choices=['200k', 'small', 'large'], help='Dataset type')
 parser.add_argument('--negative_sample_num', type=int, default=4, help='Negative sample number of each positive sample')
 args = parser.parse_args()
-train_root = args.train_root
-dev_root = args.dev_root
-test_root = args.test_root
+dataset = args.dataset
+train_root = '../../MIND-%s/train' % dataset
+dev_root = '../../MIND-%s/dev' % dataset
+test_root = '../../MIND-%s/test' % dataset
 negative_sample_num = args.negative_sample_num
 
 
@@ -25,33 +24,33 @@ def tfidf2str(tfidf_dict, offset=0):
     return str_dict
 
 def generate_libfm_data():
-    with open('offset.txt', 'r', encoding='utf-8') as offset_f:
+    with open('offset-%s.txt' % dataset, 'r', encoding='utf-8') as offset_f:
         offset1 = int(offset_f.readline().strip())
         offset2 = int(offset_f.readline().strip())
         offset3 = int(offset_f.readline().strip())
-    with open('news_ID.pkl', 'rb') as news_ID_f:
+    with open('news_ID-%s.pkl' % dataset, 'rb') as news_ID_f:
         news_ID_dict = pickle.load(news_ID_f)
-    with open('user_ID.pkl', 'rb') as user_ID_f:
+    with open('user_ID-%s.pkl' % dataset, 'rb') as user_ID_f:
         user_ID_dict = pickle.load(user_ID_f)
-    if not os.path.exists('news_tfidf_str.pkl'):
-        with open('news_tfidf.pkl', 'rb') as news_tfidf_f:
+    if not os.path.exists('news_tfidf_str-%s.pkl' % dataset):
+        with open('news_tfidf-%s.pkl' % dataset, 'rb') as news_tfidf_f:
             news_tfidf = pickle.load(news_tfidf_f)
         news_tfidf_str = tfidf2str(news_tfidf, offset=offset1 + offset2)
-        with open('news_tfidf_str.pkl', 'wb') as news_tfidf_str_f:
+        with open('news_tfidf_str-%s.pkl' % dataset, 'wb') as news_tfidf_str_f:
             pickle.dump(news_tfidf_str, news_tfidf_str_f)
     else:
-        with open('news_tfidf_str.pkl', 'rb') as news_tfidf_str_f:
+        with open('news_tfidf_str-%s.pkl' % dataset, 'rb') as news_tfidf_str_f:
             news_tfidf_str = pickle.load(news_tfidf_str_f)
-    if not os.path.exists('user_tfidf_str.pkl'):
-        with open('user_tfidf.pkl', 'rb') as user_tfidf_f:
+    if not os.path.exists('user_tfidf_str-%s.pkl' % dataset):
+        with open('user_tfidf-%s.pkl' % dataset, 'rb') as user_tfidf_f:
             user_tfidf = pickle.load(user_tfidf_f)
         user_tfidf_str = tfidf2str(user_tfidf, offset=offset1 + offset2 + offset3)
-        with open('user_tfidf_str.pkl', 'wb') as user_tfidf_str_f:
+        with open('user_tfidf_str-%s.pkl' % dataset, 'wb') as user_tfidf_str_f:
             pickle.dump(user_tfidf_str, user_tfidf_str_f)
     else:
-        with open('user_tfidf_str.pkl', 'rb') as user_tfidf_str_f:
+        with open('user_tfidf_str-%s.pkl' % dataset, 'rb') as user_tfidf_str_f:
             user_tfidf_str = pickle.load(user_tfidf_str_f)
-    with open('train.libfm', 'w', encoding='utf-8') as train_f:
+    with open('train-%s.libfm' % dataset, 'w', encoding='utf-8') as train_f:
         with open(os.path.join(train_root, 'behaviors.tsv'), 'r', encoding='utf-8') as behaviors_f:
             for line in behaviors_f:
                 impression_ID, user_ID, time, history, impressions = line.split('\t')
@@ -80,14 +79,14 @@ def generate_libfm_data():
                         for j in range(negative_sample_num):
                             train_f.write('0 %d:1 %d:1 %s %s\n' % (news_ID_dict[negative_samples[sample_index[k]]], user_ID_dict[user_ID] + offset1, news_tfidf_str[negative_samples[sample_index[k]]], user_str))
                             k += 1
-    with open('dev.libfm', 'w', encoding='utf-8') as dev_f:
+    with open('dev-%s.libfm' % dataset, 'w', encoding='utf-8') as dev_f:
         with open(os.path.join(dev_root, 'behaviors.tsv'), 'r', encoding='utf-8') as behaviors_f:
             for line in behaviors_f:
                 impression_ID, user_ID, time, history, impressions = line.split('\t')
                 user_str = user_tfidf_str[user_ID]
                 for impression in impressions.strip().split(' '):
                     dev_f.write('%s %d:1 %d:1 %s %s\n' % (impression[-1], news_ID_dict[impression[:-2]], user_ID_dict[user_ID] + offset1, news_tfidf_str[impression[:-2]], user_str))
-    with open('test.libfm', 'w', encoding='utf-8') as test_f:
+    with open('test-%s.libfm' % dataset, 'w', encoding='utf-8') as test_f:
         with open(os.path.join(test_root, 'behaviors.tsv'), 'r', encoding='utf-8') as behaviors_f:
             for line in behaviors_f:
                 impression_ID, user_ID, time, history, impressions = line.split('\t')

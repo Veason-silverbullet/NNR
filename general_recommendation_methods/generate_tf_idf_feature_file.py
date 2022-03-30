@@ -6,14 +6,13 @@ import argparse
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 parser = argparse.ArgumentParser(description='Generate tf-idf feature file')
-parser.add_argument('--train_root', type=str, default='../../MIND/200000/train', help='Directory root of train data')
-parser.add_argument('--dev_root', type=str, default='../../MIND/200000/dev', help='Directory root of dev data')
-parser.add_argument('--test_root', type=str, default='../../MIND/200000/test', help='Directory root of test data')
+parser.add_argument('--dataset', type=str, default='200k', choices=['200k', 'small', 'large'], help='Dataset type')
 parser.add_argument('--tokenizer', type=str, default='MIND', choices=['MIND', 'NLTK'], help='Sentence tokenizer')
 args = parser.parse_args()
-train_root = args.train_root
-dev_root = args.dev_root
-test_root = args.test_root
+dataset = args.dataset
+train_root = '../../MIND-%s/train' % dataset
+dev_root = '../../MIND-%s/dev' % dataset
+test_root = '../../MIND-%s/test' % dataset
 tokenizer = args.tokenizer
 pat = re.compile(r"[\w]+|[.,!?;|]")
 def is_number(s):
@@ -81,11 +80,11 @@ def build_meta():
                         user_history_dict[user_ID] = {}
                 if user_ID not in user_ID_dict:
                     user_ID_dict[user_ID] = len(user_ID_dict)
-    with open('news_ID.pkl', 'wb') as news_ID_f:
+    with open('news_ID-%s.pkl' % dataset, 'wb') as news_ID_f:
         pickle.dump(news_ID_dict, news_ID_f)
-    with open('user_ID.pkl', 'wb') as user_ID_f:
+    with open('user_ID-%s.pkl' % dataset, 'wb') as user_ID_f:
         pickle.dump(user_ID_dict, user_ID_f)
-    with open('offset.txt', 'w', encoding='utf-8') as f:
+    with open('offset-%s.txt' % dataset, 'w', encoding='utf-8') as f:
         f.write(str(len(news_ID_dict)) + '\n')
         f.write(str(len(user_ID_dict)) + '\n')
         f.write(str(len(vectorizer.get_feature_names())) + '\n')
@@ -119,8 +118,8 @@ def generate_user_tfidf(news_tfidf, user_history_dict):
 if __name__ == '__main__':
     news_dict, tfidf_matrix, user_history_dict = build_meta()
     news_tfidf = generate_news_tfidf(news_dict, tfidf_matrix)
-    with open('news_tfidf.pkl', 'wb') as news_tfidf_f:
+    with open('news_tfidf-%s.pkl' % dataset, 'wb') as news_tfidf_f:
         pickle.dump(news_tfidf, news_tfidf_f)
     user_tfidf = generate_user_tfidf(news_tfidf, user_history_dict)
-    with open('user_tfidf.pkl', 'wb') as user_tfidf_f:
+    with open('user_tfidf-%s.pkl' % dataset, 'wb') as user_tfidf_f:
         pickle.dump(user_tfidf, user_tfidf_f)

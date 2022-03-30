@@ -1,9 +1,7 @@
 import os
 import time
 import random
-import pickle
 import numpy as np
-import torch
 import torch.utils.data as data
 from torch.utils.data import DataLoader
 from DSSM_util import Config

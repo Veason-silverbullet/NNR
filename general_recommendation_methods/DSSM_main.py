@@ -21,13 +21,13 @@ class Trainer:
         self.train_dataset = TF_IDF_Train_Dataset(config)
         self.dev_dataset = TF_IDF_DevTest_Dataset(config, 'dev')
         self.run_index = get_run_index()
-        if not os.path.exists('./models/DSSM/#' + str(self.run_index)):
-            os.mkdir('./models/DSSM/#' + str(self.run_index))
-        if not os.path.exists('./best_model/DSSM/#' + str(self.run_index)):
-            os.mkdir('./best_model/DSSM/#' + str(self.run_index))
-        if not os.path.exists('./dev/res/DSSM/#' + str(self.run_index)):
-            os.mkdir('./dev/res/DSSM/#' + str(self.run_index))
-        config.write_config_json('./experiment_config/DSSM/#' + str(self.run_index) + '.json')
+        if not os.path.exists('models/DSSM/#' + str(self.run_index)):
+            os.mkdir('models/DSSM/#' + str(self.run_index))
+        if not os.path.exists('best_model/DSSM/#' + str(self.run_index)):
+            os.mkdir('best_model/DSSM/#' + str(self.run_index))
+        if not os.path.exists('dev/res/DSSM/#' + str(self.run_index)):
+            os.mkdir('dev/res/DSSM/#' + str(self.run_index))
+        config.write_config_json('configs/DSSM/#' + str(self.run_index) + '.json')
         self.batch_size = config.batch_size
         self.epoch = config.epoch
         self.gradient_clip_norm = config.gradient_clip_norm
@@ -60,7 +60,7 @@ class Trainer:
                 news_weights = news_weights.cuda(non_blocking=True)                                                # [batch_size, news_num, news_word_num]
                 news_seq_len = news_seq_len.cuda(non_blocking=True)                                                # [batch_size, news_num]
                 logits = model(user_indices, user_weights, user_seq_len, news_indices, news_weights, news_seq_len) # [batch_size, news_num]
-                loss = (-torch.log_softmax(logits, dim=1)[:, 0]).mean()
+                loss = -torch.log_softmax(logits, dim=1).select(1, 0).mean()
                 epoch_loss += float(loss) * user_indices.size(0)
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -71,7 +71,7 @@ class Trainer:
             print('loss =', epoch_loss / len(self.train_dataset))
 
             # dev
-            auc, mrr, ndcg, ndcg10 = compute_scores(model, self.dev_dataset, self.batch_size * 2, 'dev', './dev/res/DSSM/#' + str(self.run_index) + '/DSSM-' + str(e + 1) + '.txt')
+            auc, mrr, ndcg, ndcg10 = compute_scores(model, self.dev_dataset, self.batch_size * 2, 'dev', 'dev/res/DSSM/#' + str(self.run_index) + '/DSSM-' + str(e + 1) + '.txt')
             self.auc.append(auc)
             self.mrr.append(mrr)
             self.ndcg.append(ndcg)
@@ -82,7 +82,7 @@ class Trainer:
                 if e == 0 or auc >= self.best_dev_auc:
                     self.best_dev_auc = auc
                     self.best_dev_epoch = e + 1
-                    with open('./results/DSSM/#' + str(self.run_index) + '-dev', 'w') as result_f:
+                    with open('results/DSSM/#' + str(self.run_index) + '-dev', 'w') as result_f:
                         result_f.write('#' + str(self.run_index) + '\t' + str(auc) + '\t' + str(mrr) + '\t' + str(ndcg) + '\t' + str(ndcg10) + '\n')
                     self.epoch_not_increase = 0
                 else:
@@ -91,7 +91,7 @@ class Trainer:
                 if e == 0 or mrr >= self.best_dev_mrr:
                     self.best_dev_mrr = mrr
                     self.best_dev_epoch = e + 1
-                    with open('./results/DSSM/#' + str(self.run_index) + '-dev', 'w') as result_f:
+                    with open('results/DSSM/#' + str(self.run_index) + '-dev', 'w') as result_f:
                         result_f.write('#' + str(self.run_index) + '\t' + str(auc) + '\t' + str(mrr) + '\t' + str(ndcg) + '\t' + str(ndcg10) + '\n')
                     self.epoch_not_increase = 0
                 else:
@@ -100,7 +100,7 @@ class Trainer:
                 if e == 0 or ndcg >= self.best_dev_ndcg:
                     self.best_dev_ndcg = ndcg
                     self.best_dev_epoch = e + 1
-                    with open('./results/DSSM/#' + str(self.run_index) + '-dev', 'w') as result_f:
+                    with open('results/DSSM/#' + str(self.run_index) + '-dev', 'w') as result_f:
                         result_f.write('#' + str(self.run_index) + '\t' + str(auc) + '\t' + str(mrr) + '\t' + str(ndcg) + '\t' + str(ndcg10) + '\n')
                     self.epoch_not_increase = 0
                 else:
@@ -109,7 +109,7 @@ class Trainer:
                 if e == 0 or ndcg10 >= self.best_dev_ndcg10:
                     self.best_dev_ndcg10 = ndcg10
                     self.best_dev_epoch = e + 1
-                    with open('./results/DSSM/#' + str(self.run_index) + '-dev', 'w') as result_f:
+                    with open('results/DSSM/#' + str(self.run_index) + '-dev', 'w') as result_f:
                         result_f.write('#' + str(self.run_index) + '\t' + str(auc) + '\t' + str(mrr) + '\t' + str(ndcg) + '\t' + str(ndcg10) + '\n')
                     self.epoch_not_increase = 0
                 else:
@@ -117,11 +117,11 @@ class Trainer:
 
             print('Best epoch :', self.best_dev_epoch)
             print('Best ' + self.dev_criterion + ' : ' + str(getattr(self, 'best_dev_' + self.dev_criterion)))
-            torch.save({'DSSM': model.state_dict()}, './models/DSSM/#' + str(self.run_index) + '/DSSM-' + str(e + 1))
+            torch.save({'DSSM': model.state_dict()}, 'models/DSSM/#' + str(self.run_index) + '/DSSM-' + str(e + 1))
             if self.epoch_not_increase > self.early_stopping_epoch:
                 break
 
-        shutil.copy('./models/DSSM/#' + str(self.run_index) + '/DSSM-' + str(self.best_dev_epoch), './best_model/DSSM/#' + str(self.run_index) + '/DSSM')
+        shutil.copy('models/DSSM/#' + str(self.run_index) + '/DSSM-' + str(self.best_dev_epoch), 'best_model/DSSM/#' + str(self.run_index) + '/DSSM')
         print('Training : DSSM #' + str(self.run_index) + ' completed\nDev criterions:')
         print('AUC : %.4f' % self.auc[self.best_dev_epoch - 1])
         print('MRR : %.4f' % self.mrr[self.best_dev_epoch - 1])
@@ -133,7 +133,7 @@ def test(config: Config):
     model = DSSM(config)
     model.load_state_dict(torch.load(config.test_model_path, map_location=torch.device('cpu'))['DSSM'])
     model.cuda()
-    test_result_path = './test/res/DSSM/' + config.test_model_path.replace('\\', '@').replace('/', '@')
+    test_result_path = 'test/res/DSSM/' + config.test_model_path.replace('\\', '@').replace('/', '@')
     if not os.path.exists(test_result_path):
         os.mkdir(test_result_path)
     test_dataset = TF_IDF_DevTest_Dataset(config, 'test')
@@ -152,8 +152,8 @@ if __name__ == '__main__':
         model.cuda()
         trainer = Trainer(config, model)
         trainer.train()
-        config.test_model_path = './best_model/DSSM/#' + str(trainer.run_index) + '/DSSM'
-        result_file = './results/DSSM/#' + str(trainer.run_index) + '-test'
+        config.test_model_path = 'best_model/DSSM/#' + str(trainer.run_index) + '/DSSM'
+        result_file = 'results/DSSM/#' + str(trainer.run_index) + '-test'
         run_index = trainer.run_index
         del trainer
         del model
