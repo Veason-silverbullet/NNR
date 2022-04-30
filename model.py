@@ -19,8 +19,6 @@ class Model(nn.Module):
             self.news_encoder = newsEncoders.MHSA(config)
         elif config.news_encoder == 'KCNN':
             self.news_encoder = newsEncoders.KCNN(config)
-        elif config.news_encoder == 'PCNN':
-            self.news_encoder = newsEncoders.PCNN(config)
         elif config.news_encoder == 'HDC':
             self.news_encoder = newsEncoders.HDC(config)
         elif config.news_encoder == 'NAML':
@@ -60,8 +58,6 @@ class Model(nn.Module):
             self.user_encoder = userEncoders.CATT(self.news_encoder, config)
         elif config.user_encoder == 'FIM':
             self.user_encoder = userEncoders.FIM(self.news_encoder, config)
-        elif config.user_encoder == 'ARNN':
-            self.user_encoder = userEncoders.ARNN(self.news_encoder, config)
         elif config.user_encoder == 'PUE':
             self.user_encoder = userEncoders.PUE(self.news_encoder, config)
         elif config.user_encoder == 'GRU':
@@ -121,12 +117,12 @@ class Model(nn.Module):
             nn.init.xavier_uniform_(self.fc.weight)
             nn.init.zeros_(self.fc.bias)
 
-    def forward(self, user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_abstract_text, user_abstract_mask, user_abstract_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
-                      news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_abstract_text, news_abstract_mask, news_abstract_entity):
-        user_embedding = self.dropout(self.user_embedding(user_ID)) if self.use_user_embedding else None                                                                                                            # [batch_size, news_embedding_dim]
-        news_representation = self.news_encoder(news_title_text, news_title_mask, news_title_entity, news_abstract_text, news_abstract_mask, news_abstract_entity, news_category, news_subCategory, user_embedding) # [batch_size, 1 + negative_sample_num, news_embedding_dim]
-        user_representation = self.user_encoder(user_ID, user_title_text, user_title_mask, user_title_entity, user_abstract_text, user_abstract_mask, user_abstract_entity, user_category, user_subCategory, \
-                                                user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, user_embedding, news_representation)                              # [batch_size, 1 + negative_sample_num, news_embedding_dim]
+    def forward(self, user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
+                      news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_content_text, news_content_mask, news_content_entity):
+        user_embedding = self.dropout(self.user_embedding(user_ID)) if self.use_user_embedding else None                                                                                                         # [batch_size, news_embedding_dim]
+        news_representation = self.news_encoder(news_title_text, news_title_mask, news_title_entity, news_content_text, news_content_mask, news_content_entity, news_category, news_subCategory, user_embedding) # [batch_size, 1 + negative_sample_num, news_embedding_dim]
+        user_representation = self.user_encoder(user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_category, user_subCategory, \
+                                                user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, user_embedding, news_representation)                           # [batch_size, 1 + negative_sample_num, news_embedding_dim]
         if self.click_predictor == 'dot_product':
             logits = (user_representation * news_representation).sum(dim=2) # dot-product
         elif self.click_predictor == 'mlp':

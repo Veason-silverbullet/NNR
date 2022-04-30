@@ -13,19 +13,20 @@ def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, 
     indices = (mind_corpus.dev_indices if mode == 'dev' else mind_corpus.test_indices)
     scores = torch.zeros([len(indices)]).cuda()
     index = 0
+    torch.cuda.empty_cache()
     model.eval()
     with torch.no_grad():
-        for (user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_abstract_text, user_abstract_mask, user_abstract_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
-             news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_abstract_text, news_abstract_mask, news_abstract_entity) in dataloader:
+        for (user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
+             news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_content_text, news_content_mask, news_content_entity) in dataloader:
             user_ID = user_ID.cuda(non_blocking=True)
             user_category = user_category.cuda(non_blocking=True)
             user_subCategory = user_subCategory.cuda(non_blocking=True)
             user_title_text = user_title_text.cuda(non_blocking=True)
             user_title_mask = user_title_mask.cuda(non_blocking=True)
             user_title_entity = user_title_entity.cuda(non_blocking=True)
-            user_abstract_text = user_abstract_text.cuda(non_blocking=True)
-            user_abstract_mask = user_abstract_mask.cuda(non_blocking=True)
-            user_abstract_entity = user_abstract_entity.cuda(non_blocking=True)
+            user_content_text = user_content_text.cuda(non_blocking=True)
+            user_content_mask = user_content_mask.cuda(non_blocking=True)
+            user_content_entity = user_content_entity.cuda(non_blocking=True)
             user_history_mask = user_history_mask.cuda(non_blocking=True)
             user_history_graph = user_history_graph.cuda(non_blocking=True)
             user_history_category_mask = user_history_category_mask.cuda(non_blocking=True)
@@ -35,18 +36,18 @@ def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, 
             news_title_text = news_title_text.cuda(non_blocking=True)
             news_title_mask = news_title_mask.cuda(non_blocking=True)
             news_title_entity = news_title_entity.cuda(non_blocking=True)
-            news_abstract_text = news_abstract_text.cuda(non_blocking=True)
-            news_abstract_mask = news_abstract_mask.cuda(non_blocking=True)
-            news_abstract_entity = news_abstract_entity.cuda(non_blocking=True)
+            news_content_text = news_content_text.cuda(non_blocking=True)
+            news_content_mask = news_content_mask.cuda(non_blocking=True)
+            news_content_entity = news_content_entity.cuda(non_blocking=True)
             batch_size = user_ID.size(0)
             news_category = news_category.unsqueeze(dim=1)
             news_subCategory = news_subCategory.unsqueeze(dim=1)
             news_title_text = news_title_text.unsqueeze(dim=1)
             news_title_mask = news_title_mask.unsqueeze(dim=1)
-            news_abstract_text = news_abstract_text.unsqueeze(dim=1)
-            news_abstract_mask = news_abstract_mask.unsqueeze(dim=1)
-            scores[index: index+batch_size] = model(user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_abstract_text, user_abstract_mask, user_abstract_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
-                                                    news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_abstract_text, news_abstract_mask, news_abstract_entity).squeeze(dim=1) # [batch_size]
+            news_content_text = news_content_text.unsqueeze(dim=1)
+            news_content_mask = news_content_mask.unsqueeze(dim=1)
+            scores[index: index+batch_size] = model(user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
+                                                    news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_content_text, news_content_mask, news_content_entity).squeeze(dim=1) # [batch_size]
             index += batch_size
     scores = scores.tolist()
     sub_scores = [[] for _ in range(indices[-1] + 1)]
@@ -73,7 +74,7 @@ def try_to_install_torch_scatter_package():
     except Exception as e:
         import torch
         torch_version = torch.__version__.split('+')[0]
-        torch_version = torch_version[:-1] + '0' # e.g., 1.9.1 is compatible with 1.9.0
+        torch_version = torch_version[:-1] + '0' # e.g., 1.10.2 is compatible with 1.10.0
         cuda_version = None
         temp_gpu_info_file = 'gpuinfo.txt'
         os.system('nvidia-smi > ' + temp_gpu_info_file)
@@ -82,28 +83,28 @@ def try_to_install_torch_scatter_package():
                 line = line.strip()
                 if 'CUDA Version:' in line:
                     cuda_info_str = line[line.find('CUDA Version:'):]
-                    if '9.2' in cuda_info_str:
-                        cuda_version = 'cu92'
-                    elif '10.1' in cuda_info_str:
-                        cuda_version = 'cu101'
-                    elif '10.2' in cuda_info_str:
-                        cuda_version = 'cu102'
-                    elif '11.0' in cuda_info_str:
-                        cuda_version = 'cu110'
-                    elif '11.1' in cuda_info_str:
-                        cuda_version = 'cu111'
+                    if torch_version == '1.11.0':
+                        if '10.' in cuda_info_str:
+                            cuda_version = 'cu102'
+                        elif '11.0' in cuda_info_str or '11.1' in cuda_info_str or '11.2' in cuda_info_str or '11.3' in cuda_info_str:
+                            cuda_version = 'cu113'
+                        elif '11.' in cuda_info_str:
+                            cuda_version = 'cu115'
+                    else:
+                        if '10.' in cuda_info_str:
+                            cuda_version = 'cu102'
+                        elif '11.0' in cuda_info_str or '11.1' in cuda_info_str:
+                            cuda_version = 'cu111'
+                        elif '11.' in cuda_info_str:
+                            cuda_version = 'cu113'
                     break
         if os.path.exists(temp_gpu_info_file):
             os.remove(temp_gpu_info_file)
-        install_flag = False
         if cuda_version is not None:
             try:
-                os.system('pip install torch-scatter -f https://data.pyg.org/whl/torch-%s+%s.html' % (torch_version, cuda_version))
-                install_flag = True
+                os.system('pip install torch-scatter -f https://data.pyg.org/whl/torch-%s+%s.html' % (torch_version, cuda_version)) # pip install
             except Exception as _e:
-                pass
-        if not install_flag:
-            print('torch_scatter need to be installed by following the instruction of https://pytorch-scatter.readthedocs.io/en/latest')
+                print('Please install `torch_scatter` package manually')
 
 
 def get_run_index(result_dir: str):
@@ -116,3 +117,27 @@ def get_run_index(result_dir: str):
     with open(result_dir + '/#' + str(max_index + 1) + '-dev', 'w', encoding='utf-8') as result_f:
         pass
     return max_index + 1
+
+
+class AvgMetric:
+    def __init__(self, auc, mrr, ndcg5, ndcg10):
+        self.auc = auc
+        self.mrr = mrr
+        self.ndcg5 = ndcg5
+        self.ndcg10 = ndcg10
+        self.avg = (self.auc + self.mrr + (self.ndcg5 + self.ndcg10) / 2) / 3
+
+    def __gt__(self, value):
+        return self.avg > value.avg
+
+    def __ge__(self, value):
+        return self.avg >= value.avg
+
+    def __lt__(self, value):
+        return self.avg < value.avg
+
+    def __le__(self, value):
+        return self.avg <= value.avg
+
+    def __str__(self):
+        return '%.4f\nAUC = %.4f\nMRR = %.4f\nnDCG@5 = %.4f\nnDCG@10 = %.4f' % (self.avg, self.auc, self.mrr, self.ndcg5, self.ndcg10)

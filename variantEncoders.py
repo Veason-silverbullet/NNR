@@ -35,24 +35,25 @@ class CNE_Title(NewsEncoder):
         self.title_self_attention.initialize()
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
-        title_mask = title_mask.view([batch_size * news_num, self.max_title_length])                                                        # [batch_size * news_num, max_title_length]
-        title_mask[:, 0] = 1.0   # To avoid empty input of LSTM
-        title_length = title_mask.sum(dim=1, keepdim=False).long()                                                                          # [batch_size * news_num]
-        sorted_title_length, sorted_title_indices = torch.sort(title_length, descending=True)                                               # [batch_size * news_num]
-        _, desorted_title_indices = torch.sort(sorted_title_indices, descending=False)                                                      # [batch_size * news_num]
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
+        title_mask = title_mask.view([batch_news_num, self.max_title_length])                                                         # [batch_size * news_num, max_title_length]
+        title_mask[:, 0] = 1 # To avoid empty input of LSTM
+        title_length = title_mask.sum(dim=1, keepdim=False).long()                                                                    # [batch_size * news_num]
+        sorted_title_length, sorted_title_indices = torch.sort(title_length, descending=True)                                         # [batch_size * news_num]
+        _, desorted_title_indices = torch.sort(sorted_title_indices, descending=False)                                                # [batch_size * news_num]
         # 1. word embedding
-        title = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_title_length, self.word_embedding_dim]) # [batch_size * news_num, max_title_length, word_embedding_dim]
-        sorted_title = pack_padded_sequence(title.index_select(0, sorted_title_indices), sorted_title_length.cpu(), batch_first=True)       # [batch_size * news_num, max_title_length, word_embedding_dim]
+        title = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_title_length, self.word_embedding_dim])  # [batch_size * news_num, max_title_length, word_embedding_dim]
+        sorted_title = pack_padded_sequence(title.index_select(0, sorted_title_indices), sorted_title_length.cpu(), batch_first=True) # [batch_size * news_num, max_title_length, word_embedding_dim]
         # 2. LSTM encoding
         sorted_title_h, (sorted_title_h_n, sorted_title_c_n) = self.title_lstm(sorted_title)
-        sorted_title_h, _ = pad_packed_sequence(sorted_title_h, batch_first=True, total_length=self.max_title_length)                       # [batch_size * news_num, max_title_length, hidden_dim * 2]
-        title_h = sorted_title_h.index_select(0, desorted_title_indices)                                                                    # [batch_size * news_num, max_title_length, hidden_dim * 2]
+        sorted_title_h, _ = pad_packed_sequence(sorted_title_h, batch_first=True, total_length=self.max_title_length)                 # [batch_size * news_num, max_title_length, hidden_dim * 2]
+        title_h = sorted_title_h.index_select(0, desorted_title_indices)                                                              # [batch_size * news_num, max_title_length, hidden_dim * 2]
         # 3. self-attention
-        title_self = self.title_self_attention(title_h, title_mask).view([batch_size, news_num, self.hidden_dim * 2])                       # [batch_size * news_num, hidden_dim * 2]
-        # 5. feature fusion
-        news_representation = self.feature_fusion(title_self, category, subCategory)                                                        # [batch_size, news_num, news_embedding_dim]
+        title_self = self.title_self_attention(title_h, title_mask).view([batch_size, news_num, self.hidden_dim * 2])                 # [batch_size * news_num, hidden_dim * 2]
+        # 4. feature fusion
+        news_representation = self.feature_fusion(title_self, category, subCategory)                                                  # [batch_size, news_num, news_embedding_dim]
         return news_representation
 
 
@@ -78,24 +79,25 @@ class CNE_Content(NewsEncoder):
         self.content_self_attention.initialize()
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
-        content_mask = content_mask.view([batch_size * news_num, self.max_content_length])                                                        # [batch_size * news_num, max_content_length]
-        content_mask[:, 0] = 1.0 # To avoid empty input of LSTM
-        content_length = content_mask.sum(dim=1, keepdim=False).long()                                                                            # [batch_size * news_num]
-        sorted_content_length, sorted_content_indices = torch.sort(content_length, descending=True)                                               # [batch_size * news_num]
-        _, desorted_content_indices = torch.sort(sorted_content_indices, descending=False)                                                        # [batch_size * news_num]
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
+        content_mask = content_mask.view([batch_news_num, self.max_content_length])                                                           # [batch_size * news_num, max_content_length]
+        content_mask[:, 0] = 1 # To avoid empty input of LSTM
+        content_length = content_mask.sum(dim=1, keepdim=False).long()                                                                        # [batch_size * news_num]
+        sorted_content_length, sorted_content_indices = torch.sort(content_length, descending=True)                                           # [batch_size * news_num]
+        _, desorted_content_indices = torch.sort(sorted_content_indices, descending=False)                                                    # [batch_size * news_num]
         # 1. word embedding
-        content = self.dropout(self.word_embedding(content_text)).view([batch_size * news_num, self.max_content_length, self.word_embedding_dim]) # [batch_size * news_num, max_content_length, word_embedding_dim]
-        sorted_content = pack_padded_sequence(content.index_select(0, sorted_content_indices), sorted_content_length.cpu(), batch_first=True)     # [batch_size * news_num, max_content_length, word_embedding_dim]
+        content = self.dropout(self.word_embedding(content_text)).view([batch_news_num, self.max_content_length, self.word_embedding_dim])    # [batch_size * news_num, max_content_length, word_embedding_dim]
+        sorted_content = pack_padded_sequence(content.index_select(0, sorted_content_indices), sorted_content_length.cpu(), batch_first=True) # [batch_size * news_num, max_content_length, word_embedding_dim]
         # 2. LSTM encoding
         sorted_content_h, (sorted_content_h_n, sorted_content_c_n) = self.content_lstm(sorted_content)
-        sorted_content_h, _ = pad_packed_sequence(sorted_content_h, batch_first=True, total_length=self.max_content_length)                       # [batch_size * news_num, max_content_length, hidden_dim * 2]
-        content_h = sorted_content_h.index_select(0, desorted_content_indices)                                                                    # [batch_size * news_num, max_content_length, hidden_dim * 2]
+        sorted_content_h, _ = pad_packed_sequence(sorted_content_h, batch_first=True, total_length=self.max_content_length)                   # [batch_size * news_num, max_content_length, hidden_dim * 2]
+        content_h = sorted_content_h.index_select(0, desorted_content_indices)                                                                # [batch_size * news_num, max_content_length, hidden_dim * 2]
         # 3. self-attention
-        content_self = self.content_self_attention(content_h, content_mask).view([batch_size, news_num, self.hidden_dim * 2])                     # [batch_size * news_num, hidden_dim * 2]
-        # 5. feature fusion
-        news_representation = self.feature_fusion(content_self, category, subCategory)                                                            # [batch_size, news_num, news_embedding_dim]
+        content_self = self.content_self_attention(content_h, content_mask).view([batch_size, news_num, self.hidden_dim * 2])                 # [batch_size * news_num, hidden_dim * 2]
+        # 4. feature fusion
+        news_representation = self.feature_fusion(content_self, category, subCategory)                                                        # [batch_size, news_num, news_embedding_dim]
         return news_representation
 
 
@@ -124,21 +126,22 @@ class NAML_Title(NewsEncoder):
         nn.init.xavier_uniform_(self.affine2.weight)
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
         # 1. word embedding
-        title_w = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_title_length, self.word_embedding_dim]).permute(0, 2, 1) # [batch_size, news_num, max_title_length, word_embedding_dim]
+        title_w = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_title_length, self.word_embedding_dim]) # [batch_size * news_num, word_embedding_dim, max_title_length]
         # 2. CNN encoding
-        title_c = self.dropout(self.title_conv(title_w).permute(0, 2, 1))                                                                                      # [batch_size * news_num, max_title_length, cnn_kernel_num]
+        title_c = self.dropout_(self.title_conv(title_w.permute(0, 2, 1)).permute(0, 2, 1))                                            # [batch_size * news_num, max_title_length, cnn_kernel_num]
         # 3. attention layer
-        title_representation = self.title_attention(title_c).view([batch_size, news_num, self.cnn_kernel_num])                                                 # [batch_size, news_num, cnn_kernel_num]
+        title_representation = self.title_attention(title_c).view([batch_size, news_num, self.cnn_kernel_num])                         # [batch_size, news_num, cnn_kernel_num]
         # 4. category and subCategory encoding
-        category_representation = F.relu(self.category_affine(self.category_embedding(category)), inplace=True)                                                # [batch_size, news_num, cnn_kernel_num]
-        subCategory_representation = F.relu(self.subCategory_affine(self.subCategory_embedding(subCategory)), inplace=True)                                    # [batch_size, news_num, cnn_kernel_num]
+        category_representation = F.relu(self.category_affine(self.category_embedding(category)), inplace=True)                        # [batch_size, news_num, cnn_kernel_num]
+        subCategory_representation = F.relu(self.subCategory_affine(self.subCategory_embedding(subCategory)), inplace=True)            # [batch_size, news_num, cnn_kernel_num]
         # 5. multi-view attention
-        feature = torch.stack([title_representation, category_representation, subCategory_representation], dim=2)                                              # [batch_size, news_num, 3, cnn_kernel_num]
-        alpha = F.softmax(self.affine2(torch.tanh(self.affine1(feature))), dim=2)                                                                              # [batch_size, news_num, 3, 1]
-        news_representation = (feature * alpha).sum(dim=2, keepdim=False)                                                                                      # [batch_size, news_num, cnn_kernel_num]
+        feature = torch.stack([title_representation, category_representation, subCategory_representation], dim=2)                      # [batch_size, news_num, 3, cnn_kernel_num]
+        alpha = F.softmax(self.affine2(torch.tanh(self.affine1(feature))), dim=2)                                                      # [batch_size, news_num, 3, 1]
+        news_representation = (feature * alpha).sum(dim=2, keepdim=False)                                                              # [batch_size, news_num, cnn_kernel_num]
         return news_representation
 
 
@@ -167,21 +170,22 @@ class NAML_Content(NewsEncoder):
         nn.init.xavier_uniform_(self.affine2.weight)
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
         # 1. word embedding
-        content_w = self.dropout(self.word_embedding(content_text)).view([batch_size * news_num, self.max_content_length, self.word_embedding_dim]).permute(0, 2, 1) # [batch_size, news_num, max_content_length, word_embedding_dim]
+        content_w = self.dropout(self.word_embedding(content_text)).view([batch_news_num, self.max_content_length, self.word_embedding_dim]) # [batch_size * news_num, max_content_length, word_embedding_dim]
         # 2. CNN encoding
-        content_c = self.dropout(self.content_conv(content_w).permute(0, 2, 1))                                                                                      # [batch_size * news_num, max_content_length, cnn_kernel_num]
+        content_c = self.dropout_(self.content_conv(content_w.permute(0, 2, 1)).permute(0, 2, 1))                                            # [batch_size * news_num, max_content_length, cnn_kernel_num]
         # 3. attention layer
-        content_representation = self.content_attention(content_c).view([batch_size, news_num, self.cnn_kernel_num])                                                 # [batch_size, news_num, cnn_kernel_num]
+        content_representation = self.content_attention(content_c).view([batch_size, news_num, self.cnn_kernel_num])                         # [batch_size, news_num, cnn_kernel_num]
         # 4. category and subCategory encoding
-        category_representation = F.relu(self.category_affine(self.category_embedding(category)), inplace=True)                                                      # [batch_size, news_num, cnn_kernel_num]
-        subCategory_representation = F.relu(self.subCategory_affine(self.subCategory_embedding(subCategory)), inplace=True)                                          # [batch_size, news_num, cnn_kernel_num]
+        category_representation = F.relu(self.category_affine(self.category_embedding(category)), inplace=True)                              # [batch_size, news_num, cnn_kernel_num]
+        subCategory_representation = F.relu(self.subCategory_affine(self.subCategory_embedding(subCategory)), inplace=True)                  # [batch_size, news_num, cnn_kernel_num]
         # 5. multi-view attention
-        feature = torch.stack([content_representation, category_representation, subCategory_representation], dim=2)                                                  # [batch_size, news_num, 3, cnn_kernel_num]
-        alpha = F.softmax(self.affine2(torch.tanh(self.affine1(feature))), dim=2)                                                                                    # [batch_size, news_num, 3, 1]
-        news_representation = (feature * alpha).sum(dim=2, keepdim=False)                                                                                            # [batch_size, news_num, cnn_kernel_num]
+        feature = torch.stack([content_representation, category_representation, subCategory_representation], dim=2)                          # [batch_size, news_num, 3, cnn_kernel_num]
+        alpha = F.softmax(self.affine2(torch.tanh(self.affine1(feature))), dim=2)                                                            # [batch_size, news_num, 3, 1]
+        news_representation = (feature * alpha).sum(dim=2, keepdim=False)                                                                    # [batch_size, news_num, cnn_kernel_num]
         return news_representation
 
 
@@ -221,12 +225,13 @@ class CNE_wo_CS(NewsEncoder):
         self.content_cross_attention.initialize()
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
-        title_mask = title_mask.view([batch_size * news_num, self.max_title_length])                                                                       # [batch_size * news_num, max_title_length]
-        content_mask = content_mask.view([batch_size * news_num, self.max_content_length])                                                                 # [batch_size * news_num, max_content_length]
-        title_mask[:, 0] = 1.0   # To avoid empty input of LSTM
-        content_mask[:, 0] = 1.0 # To avoid empty input of LSTM
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
+        title_mask = title_mask.view([batch_news_num, self.max_title_length])                                                                              # [batch_size * news_num, max_title_length]
+        content_mask = content_mask.view([batch_news_num, self.max_content_length])                                                                        # [batch_size * news_num, max_content_length]
+        title_mask[:, 0] = 1   # To avoid empty input of LSTM
+        content_mask[:, 0] = 1 # To avoid empty input of LSTM
         title_length = title_mask.sum(dim=1, keepdim=False).long()                                                                                         # [batch_size * news_num]
         content_length = content_mask.sum(dim=1, keepdim=False).long()                                                                                     # [batch_size * news_num]
         sorted_title_length, sorted_title_indices = torch.sort(title_length, descending=True)                                                              # [batch_size * news_num]
@@ -234,8 +239,8 @@ class CNE_wo_CS(NewsEncoder):
         sorted_content_length, sorted_content_indices = torch.sort(content_length, descending=True)                                                        # [batch_size * news_num]
         _, desorted_content_indices = torch.sort(sorted_content_indices, descending=False)                                                                 # [batch_size * news_num]
         # 1. word embedding
-        title = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_title_length, self.word_embedding_dim])                # [batch_size * news_num, max_title_length, word_embedding_dim]
-        content = self.dropout(self.word_embedding(content_text)).view([batch_size * news_num, self.max_content_length, self.word_embedding_dim])          # [batch_size * news_num, max_content_length, word_embedding_dim]
+        title = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_title_length, self.word_embedding_dim])                       # [batch_size * news_num, max_title_length, word_embedding_dim]
+        content = self.dropout(self.word_embedding(content_text)).view([batch_news_num, self.max_content_length, self.word_embedding_dim])                 # [batch_size * news_num, max_content_length, word_embedding_dim]
         sorted_title = pack_padded_sequence(title.index_select(0, sorted_title_indices), sorted_title_length.cpu(), batch_first=True)                      # [batch_size * news_num, max_title_length, word_embedding_dim]
         sorted_content = pack_padded_sequence(content.index_select(0, sorted_content_indices), sorted_content_length.cpu(), batch_first=True)              # [batch_size * news_num, max_content_length, word_embedding_dim]
         # 2. LSTM encoding
@@ -298,40 +303,41 @@ class CNE_wo_CA(NewsEncoder):
         self.content_self_attention.initialize()
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
-        title_mask = title_mask.view([batch_size * news_num, self.max_title_length])                                                              # [batch_size * news_num, max_title_length]
-        content_mask = content_mask.view([batch_size * news_num, self.max_content_length])                                                        # [batch_size * news_num, max_content_length]
-        title_mask[:, 0] = 1.0   # To avoid empty input of LSTM
-        content_mask[:, 0] = 1.0 # To avoid empty input of LSTM
-        title_length = title_mask.sum(dim=1, keepdim=False).long()                                                                                # [batch_size * news_num]
-        content_length = content_mask.sum(dim=1, keepdim=False).long()                                                                            # [batch_size * news_num]
-        sorted_title_length, sorted_title_indices = torch.sort(title_length, descending=True)                                                     # [batch_size * news_num]
-        _, desorted_title_indices = torch.sort(sorted_title_indices, descending=False)                                                            # [batch_size * news_num]
-        sorted_content_length, sorted_content_indices = torch.sort(content_length, descending=True)                                               # [batch_size * news_num]
-        _, desorted_content_indices = torch.sort(sorted_content_indices, descending=False)                                                        # [batch_size * news_num]
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
+        title_mask = title_mask.view([batch_news_num, self.max_title_length])                                                                 # [batch_size * news_num, max_title_length]
+        content_mask = content_mask.view([batch_news_num, self.max_content_length])                                                           # [batch_size * news_num, max_content_length]
+        title_mask[:, 0] = 1   # To avoid empty input of LSTM
+        content_mask[:, 0] = 1 # To avoid empty input of LSTM
+        title_length = title_mask.sum(dim=1, keepdim=False).long()                                                                            # [batch_size * news_num]
+        content_length = content_mask.sum(dim=1, keepdim=False).long()                                                                        # [batch_size * news_num]
+        sorted_title_length, sorted_title_indices = torch.sort(title_length, descending=True)                                                 # [batch_size * news_num]
+        _, desorted_title_indices = torch.sort(sorted_title_indices, descending=False)                                                        # [batch_size * news_num]
+        sorted_content_length, sorted_content_indices = torch.sort(content_length, descending=True)                                           # [batch_size * news_num]
+        _, desorted_content_indices = torch.sort(sorted_content_indices, descending=False)                                                    # [batch_size * news_num]
         # 1. word embedding
-        title = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_title_length, self.word_embedding_dim])       # [batch_size * news_num, max_title_length, word_embedding_dim]
-        content = self.dropout(self.word_embedding(content_text)).view([batch_size * news_num, self.max_content_length, self.word_embedding_dim]) # [batch_size * news_num, max_content_length, word_embedding_dim]
-        sorted_title = pack_padded_sequence(title.index_select(0, sorted_title_indices), sorted_title_length.cpu(), batch_first=True)             # [batch_size * news_num, max_title_length, word_embedding_dim]
-        sorted_content = pack_padded_sequence(content.index_select(0, sorted_content_indices), sorted_content_length.cpu(), batch_first=True)     # [batch_size * news_num, max_content_length, word_embedding_dim]
+        title = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_title_length, self.word_embedding_dim])          # [batch_size * news_num, max_title_length, word_embedding_dim]
+        content = self.dropout(self.word_embedding(content_text)).view([batch_news_num, self.max_content_length, self.word_embedding_dim])    # [batch_size * news_num, max_content_length, word_embedding_dim]
+        sorted_title = pack_padded_sequence(title.index_select(0, sorted_title_indices), sorted_title_length.cpu(), batch_first=True)         # [batch_size * news_num, max_title_length, word_embedding_dim]
+        sorted_content = pack_padded_sequence(content.index_select(0, sorted_content_indices), sorted_content_length.cpu(), batch_first=True) # [batch_size * news_num, max_content_length, word_embedding_dim]
         # 2. selective LSTM encoding
         sorted_title_h, (sorted_title_h_n, sorted_title_c_n) = self.title_lstm(sorted_title)
         sorted_content_h, (sorted_content_h_n, sorted_content_c_n) = self.content_lstm(sorted_content)
-        sorted_title_m = torch.cat([sorted_title_c_n[0], sorted_title_c_n[1]], dim=1)                                                             # [batch_size * news_num, hidden_dim * 2]
-        sorted_content_m = torch.cat([sorted_content_c_n[0], sorted_content_c_n[1]], dim=1)                                                       # [batch_size * news_num, hidden_dim * 2]
-        sorted_title_h, _ = pad_packed_sequence(sorted_title_h, batch_first=True, total_length=self.max_title_length)                             # [batch_size * news_num, max_title_length, hidden_dim * 2]
-        sorted_content_h, _ = pad_packed_sequence(sorted_content_h, batch_first=True, total_length=self.max_content_length)                       # [batch_size * news_num, max_content_length, hidden_dim * 2]
-        sorted_title_gate = torch.sigmoid(self.title_H(sorted_title_h) + self.title_M(sorted_content_m).unsqueeze(dim=1))                         # [batch_size * news_num, max_title_length, hidden_dim * 2]
-        sorted_content_gate = torch.sigmoid(self.content_H(sorted_content_h) + self.content_M(sorted_title_m).unsqueeze(dim=1))                   # [batch_size * news_num, max_content_length, hidden_dim * 2]
-        title_h = (sorted_title_h * sorted_title_gate).index_select(0, desorted_title_indices)                                                    # [batch_size * news_num, max_title_length, hidden_dim * 2]
-        content_h = (sorted_content_h * sorted_content_gate).index_select(0, desorted_content_indices)                                            # [batch_size * news_num, max_content_length, hidden_dim * 2]
+        sorted_title_m = torch.cat([sorted_title_c_n[0], sorted_title_c_n[1]], dim=1)                                                         # [batch_size * news_num, hidden_dim * 2]
+        sorted_content_m = torch.cat([sorted_content_c_n[0], sorted_content_c_n[1]], dim=1)                                                   # [batch_size * news_num, hidden_dim * 2]
+        sorted_title_h, _ = pad_packed_sequence(sorted_title_h, batch_first=True, total_length=self.max_title_length)                         # [batch_size * news_num, max_title_length, hidden_dim * 2]
+        sorted_content_h, _ = pad_packed_sequence(sorted_content_h, batch_first=True, total_length=self.max_content_length)                   # [batch_size * news_num, max_content_length, hidden_dim * 2]
+        sorted_title_gate = torch.sigmoid(self.title_H(sorted_title_h) + self.title_M(sorted_content_m).unsqueeze(dim=1))                     # [batch_size * news_num, max_title_length, hidden_dim * 2]
+        sorted_content_gate = torch.sigmoid(self.content_H(sorted_content_h) + self.content_M(sorted_title_m).unsqueeze(dim=1))               # [batch_size * news_num, max_content_length, hidden_dim * 2]
+        title_h = (sorted_title_h * sorted_title_gate).index_select(0, desorted_title_indices)                                                # [batch_size * news_num, max_title_length, hidden_dim * 2]
+        content_h = (sorted_content_h * sorted_content_gate).index_select(0, desorted_content_indices)                                        # [batch_size * news_num, max_content_length, hidden_dim * 2]
         # 3. self-attention
-        title_self = self.title_self_attention(title_h, title_mask)                                                                               # [batch_size * news_num, hidden_dim * 2]
-        content_self = self.content_self_attention(content_h, content_mask)                                                                       # [batch_size * news_num, hidden_dim * 2]
-        news_representation = torch.cat([title_self, content_self], dim=1).view([batch_size, news_num, self.hidden_dim * 4])                      # [batch_size * news_num, hidden_dim * 4]
+        title_self = self.title_self_attention(title_h, title_mask)                                                                           # [batch_size * news_num, hidden_dim * 2]
+        content_self = self.content_self_attention(content_h, content_mask)                                                                   # [batch_size * news_num, hidden_dim * 2]
+        news_representation = torch.cat([title_self, content_self], dim=1).view([batch_size, news_num, self.hidden_dim * 4])                  # [batch_size * news_num, hidden_dim * 4]
         # 4. feature fusion
-        news_representation = self.feature_fusion(news_representation, category, subCategory)                                                     # [batch_size, news_num, news_embedding_dim]
+        news_representation = self.feature_fusion(news_representation, category, subCategory)                                                 # [batch_size, news_num, news_embedding_dim]
         return news_representation
 
 
@@ -346,7 +352,7 @@ class SUE_wo_GCN(UserEncoder):
         self.dropout = nn.Dropout(p=config.dropout_rate, inplace=True)
         self.category_num = config.category_num + 1 # extra one category index for padding news
         self.max_history_num = config.max_history_num
-        self.d = math.sqrt(float(self.attention_dim))
+        self.attention_scalar = math.sqrt(float(self.attention_dim))
 
     def initialize(self):
         nn.init.xavier_uniform_(self.intraCluster_K.weight)
@@ -357,32 +363,32 @@ class SUE_wo_GCN(UserEncoder):
         nn.init.zeros_(self.clusterFeatureAffine.bias)
         self.interClusterAttention.initialize()
 
-    def forward(self, user_ID, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_category, user_subCategory, \
-                user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, user_embedding, candidate_news_representaion):
-        batch_size = user_ID.size(0)
-        news_num = candidate_news_representaion.size(1)
-        user_history_category_mask = user_history_category_mask.unsqueeze(dim=1).expand(-1, news_num, -1).contiguous()                        # [batch_size, news_num, category_num]
-        user_history_category_mask[:, :, -1] = 1.0
-        user_history_category_indices = user_history_category_indices.unsqueeze(dim=1).expand(-1, news_num, -1)                               # [batch_size, news_num, max_history_num]
+    def forward(self, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_category, user_subCategory, \
+                user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, user_embedding, candidate_news_representation):
+        batch_size = user_title_text.size(0)
+        news_num = candidate_news_representation.size(1)
+        batch_news_num = batch_size * news_num
+        user_history_category_mask[:, -1] = 1
+        user_history_category_mask = user_history_category_mask.unsqueeze(dim=1).expand(-1, news_num, -1).contiguous()                         # [batch_size, news_num, category_num]
+        user_history_category_indices = user_history_category_indices.unsqueeze(dim=1).expand(-1, news_num, -1)                                # [batch_size, news_num, max_history_num]
         history_embedding = self.news_encoder(user_title_text, user_title_mask, user_title_entity, \
                                               user_content_text, user_content_mask, user_content_entity, \
-                                              user_category, user_subCategory, user_embedding)                                                # [batch_size, max_history_num, news_embedding_dim]
-        history_embedding = history_embedding.unsqueeze(dim=1).expand(-1, news_num, -1, -1)                                                   # [batch_size, news_num, max_history_num, news_embedding_dim]
+                                              user_category, user_subCategory, user_embedding)                                                 # [batch_size, max_history_num, news_embedding_dim]
+        history_embedding = history_embedding.unsqueeze(dim=1).expand(-1, news_num, -1, -1)                                                    # [batch_size, news_num, max_history_num, news_embedding_dim]
         # 1. Intra-cluster attention
-        K = self.intraCluster_K(history_embedding).view([batch_size * news_num, self.max_history_num, self.attention_dim])                    # [batch_size * news_num, max_history_num, attention_dim]
-        Q = self.intraCluster_Q(candidate_news_representaion).view([batch_size * news_num, self.attention_dim, 1])                            # [batch_size * news_num, attention_dim]
-        a = torch.bmm(K, Q).view([batch_size, news_num, self.max_history_num]) / self.d                                                       # [batch_size, news_num, max_history_num]
-        alpha_intra = scatter_softmax(a, user_history_category_indices, 2).unsqueeze(dim=3)                                                   # [batch_size, news_num, max_history_num, 1]
-        intra_cluster_feature = torch.zeros([batch_size, news_num, self.category_num, self.news_embedding_dim], device=self.device)           # [batch_size, news_num, category_num, news_embedding_dim]
-        intra_cluster_feature = scatter_sum(alpha_intra * history_embedding, user_history_category_indices, dim=2, out=intra_cluster_feature) # [batch_size, news_num, category_num, news_embedding_dim]
+        K = self.intraCluster_K(history_embedding).view([batch_news_num, self.max_history_num, self.attention_dim])                            # [batch_size * news_num, max_history_num, attention_dim]
+        Q = self.intraCluster_Q(candidate_news_representation).view([batch_news_num, self.attention_dim, 1])                                   # [batch_size * news_num, attention_dim, 1]
+        a = torch.bmm(K, Q).view([batch_size, news_num, self.max_history_num]) / self.attention_scalar                                         # [batch_size, news_num, max_history_num]
+        alpha_intra = scatter_softmax(a, user_history_category_indices, 2).unsqueeze(dim=3)                                                    # [batch_size, news_num, max_history_num, 1]
+        intra_cluster_feature = scatter_sum(alpha_intra * history_embedding, user_history_category_indices, dim=2, dim_size=self.category_num) # [batch_size, news_num, category_num, news_embedding_dim]
         # perform non-linear transformation on intra-cluster features
-        intra_cluster_feature = self.dropout(F.relu(self.clusterFeatureAffine(intra_cluster_feature), inplace=True) + intra_cluster_feature)  # [batch_size, news_num, category_num, news_embedding_dim]
+        intra_cluster_feature = self.dropout(F.relu(self.clusterFeatureAffine(intra_cluster_feature), inplace=True) + intra_cluster_feature)   # [batch_size, news_num, category_num, news_embedding_dim]
         # 2. Inter-cluster attention
         inter_cluster_feature = self.interClusterAttention(
-            intra_cluster_feature.view([batch_size * news_num, self.category_num, self.news_embedding_dim]),
-            candidate_news_representaion.view([batch_size * news_num, self.news_embedding_dim]),
-            mask=user_history_category_mask.view([batch_size * news_num, self.category_num])
-        ).view([batch_size, news_num, self.news_embedding_dim])                                                                               # [batch_size, news_num, news_embedding_dim]
+            intra_cluster_feature.view([batch_news_num, self.category_num, self.news_embedding_dim]),
+            candidate_news_representation.view([batch_news_num, self.news_embedding_dim]),
+            mask=user_history_category_mask.view([batch_news_num, self.category_num])
+        ).view([batch_size, news_num, self.news_embedding_dim])                                                                                # [batch_size, news_num, news_embedding_dim]
         return inter_cluster_feature
 
 
@@ -400,11 +406,10 @@ class SUE_wo_HCA(UserEncoder):
         self.gcn.initialize()
         self.attention.initialize()
 
-    def forward(self, user_ID, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_category, user_subCategory, \
-                user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, user_embedding, candidate_news_representaion):
-        batch_size = user_ID.size(0)
-        news_num = candidate_news_representaion.size(1)
-        user_history_num = user_history_mask.sum(dim=1, keepdim=False).long()                                                                             # [batch_size]
+    def forward(self, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_category, user_subCategory, \
+                user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, user_embedding, candidate_news_representation):
+        batch_size = user_title_text.size(0)
+        news_num = candidate_news_representation.size(1)
         history_embedding = self.news_encoder(user_title_text, user_title_mask, user_title_entity, \
                                               user_content_text, user_content_mask, user_content_entity, user_category, user_subCategory, user_embedding) # [batch_size, max_history_num, news_embedding_dim]
         # 1. GCN

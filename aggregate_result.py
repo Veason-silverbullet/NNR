@@ -55,8 +55,8 @@ def aggregate_criteria(model_name, criteria_list, experiment_results_f):
 
 def list_model_name():
     model_names = []
-    for news_encoder in ['CNE', 'CNN', 'MHSA', 'KCNN', 'PCNN', 'HDC', 'NAML', 'PNE', 'DAE', 'Inception', 'NAML_Title', 'NAML_Content', 'CNE_Title', 'CNE_Content', 'CNE_wo_CS', 'CNE_wo_CA']:
-        for user_encoder in ['SUE', 'LSTUR', 'MHSA', 'ATT', 'CATT', 'FIM', 'ARNN', 'PUE', 'GRU', 'OMAP', 'SUE_wo_GCN', 'SUE_wo_HCA']:
+    for news_encoder in ['CNE', 'CNN', 'MHSA', 'KCNN', 'HDC', 'NAML', 'PNE', 'DAE', 'Inception', 'NAML_Title', 'NAML_Content', 'CNE_Title', 'CNE_Content', 'CNE_wo_CS', 'CNE_wo_CA']:
+        for user_encoder in ['SUE', 'LSTUR', 'MHSA', 'ATT', 'CATT', 'FIM', 'PUE', 'GRU', 'OMAP', 'SUE_wo_GCN', 'SUE_wo_HCA']:
             model_names.append(news_encoder + '-' + user_encoder)
     return model_names
 

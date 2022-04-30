@@ -17,5 +17,6 @@
 /test
 /configs
 /results
+/prediction
 /__pycache__
 /.vscode

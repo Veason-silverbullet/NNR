@@ -13,8 +13,8 @@ class Config:
         parser = argparse.ArgumentParser(description='Neural news recommendation')
         # General config
         parser.add_argument('--mode', type=str, default='train', choices=['train', 'dev', 'test'], help='Mode')
-        parser.add_argument('--news_encoder', type=str, default='CNE', choices=['CNE', 'CNN', 'MHSA', 'KCNN', 'PCNN', 'HDC', 'NAML', 'PNE', 'DAE', 'Inception', 'NAML_Title', 'NAML_Content', 'CNE_Title', 'CNE_Content', 'CNE_wo_CS', 'CNE_wo_CA'], help='News encoder')
-        parser.add_argument('--user_encoder', type=str, default='SUE', choices=['SUE', 'LSTUR', 'MHSA', 'ATT', 'CATT', 'FIM', 'ARNN', 'PUE', 'GRU', 'OMAP', 'SUE_wo_GCN', 'SUE_wo_HCA'], help='User encoder')
+        parser.add_argument('--news_encoder', type=str, default='CNE', choices=['CNE', 'CNN', 'MHSA', 'KCNN', 'HDC', 'NAML', 'PNE', 'DAE', 'Inception', 'NAML_Title', 'NAML_Content', 'CNE_Title', 'CNE_Content', 'CNE_wo_CS', 'CNE_wo_CA'], help='News encoder')
+        parser.add_argument('--user_encoder', type=str, default='SUE', choices=['SUE', 'LSTUR', 'MHSA', 'ATT', 'CATT', 'FIM', 'PUE', 'GRU', 'OMAP', 'SUE_wo_GCN', 'SUE_wo_HCA'], help='User encoder')
         parser.add_argument('--dev_model_path', type=str, default='', help='Dev model path')
         parser.add_argument('--test_model_path', type=str, default='', help='Test model path')
         parser.add_argument('--test_output_file', type=str, default='', help='Specific test output file')
@@ -30,14 +30,14 @@ class Config:
         # Training config
         parser.add_argument('--negative_sample_num', type=int, default=4, help='Negative sample number of each positive sample')
         parser.add_argument('--max_history_num', type=int, default=50, help='Maximum number of history news for each user')
-        parser.add_argument('--epoch', type=int, default=100, help='Training epoch')
+        parser.add_argument('--epoch', type=int, default=16, help='Training epoch')
         parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
         parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
         parser.add_argument('--weight_decay', type=float, default=0, help='Optimizer weight decay')
         parser.add_argument('--gradient_clip_norm', type=float, default=4, help='Gradient clip norm (non-positive value for no clipping)')
         parser.add_argument('--world_size', type=int, default=1, help='World size of multi-process GPU training')
         # Dev config
-        parser.add_argument('--dev_criterion', type=str, default='auc', choices=['auc', 'mrr', 'ndcg5', 'ndcg10'], help='Validation criterion to select model')
+        parser.add_argument('--dev_criterion', type=str, default='avg', choices=['auc', 'mrr', 'ndcg5', 'ndcg10', 'avg'], help='Validation criterion to select model')
         parser.add_argument('--early_stopping_epoch', type=int, default=5, help='Epoch number of stop training after dev result does not improve')
         # Model config
         parser.add_argument('--word_embedding_dim', type=int, default=300, choices=[50, 100, 200, 300], help='Word embedding dimension')
@@ -81,28 +81,33 @@ class Config:
         self.train_root = '../MIND-%s/train' % self.dataset
         self.dev_root = '../MIND-%s/dev' % self.dataset
         self.test_root = '../MIND-%s/test' % self.dataset
-        if self.dataset == 'small': # suggested configuration for MIND small
-            self.dropout_rate = 0.3
+        if self.dataset == 'small': # suggested configuration for MIND-small
+            self.dropout_rate = 0.25
             self.gcn_layer_num = 3
-        elif self.dataset == '200k': # suggested configuration for MIND 200k
+        elif self.dataset == '200k': # suggested configuration for MIND-200k
             self.dropout_rate = 0.2
             self.gcn_layer_num = 4
-            self.epoch = 10
-        else: # suggested configuration for MIND large
+            self.epoch = 8
+        else: # suggested configuration for MIND-large
             self.dropout_rate = 0.1
             self.gcn_layer_num = 4
-            self.epoch = 10
+            self.epoch = 7
         self.seed = self.seed if self.seed >= 0 else (int)(time.time())
+        self.attribute_dict['dropout_rate'] = self.dropout_rate
+        self.attribute_dict['gcn_layer_num'] = self.gcn_layer_num
+        self.attribute_dict['epoch'] = self.epoch
+        self.attribute_dict['seed'] = self.seed
         if self.config_file != '':
             if os.path.exists(self.config_file):
-                print('Get experiment settings from the config file: ' + self.config_file)
+                print('Get experiment settings from the config file : ' + self.config_file)
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     configs = json.load(f)
                     for attribute in self.attribute_dict:
                         if attribute in configs:
                             setattr(self, attribute, configs[attribute])
+                            self.attribute_dict[attribute] = configs[attribute]
             else:
-                raise Exception('Config file does not exist: ' + self.config_file)
+                raise Exception('Config file does not exist : ' + self.config_file)
         assert not (self.no_self_connection and not self.no_adjacent_normalization), 'Adjacent normalization of graph only can be set in case of self-connection'
         print('*' * 32 + ' Experiment setting ' + '*' * 32)
         for attribute in self.attribute_dict:
@@ -122,7 +127,7 @@ class Config:
         random.seed(self.seed)
         np.random.seed(self.seed)
         torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True # For reproducibility
+        torch.backends.cudnn.deterministic = True # For reproducibility (https://pytorch.org/docs/stable/notes/randomness.html)
 
 
     def preliminary_setup(self):
@@ -165,6 +170,9 @@ class Config:
                             impression_ID, user_ID, time, history, impressions = line.split('\t')
                             labels = [int(impression[-1]) for impression in impressions.strip().split(' ')]
                             truth_f.write(('' if test_ID == 0 else '\n') + str(test_ID + 1) + ' ' + str(labels).replace(' ', ''))
+        else:
+            self.prediction_dir = 'prediction/large/' + model_name
+            mkdirs(self.prediction_dir)
 
 
     def __init__(self):

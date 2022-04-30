@@ -5,6 +5,7 @@ import json
 from config import Config
 from MIND_corpus import MIND_Corpus
 from MIND_dataset import MIND_Train_Dataset
+from util import AvgMetric
 from util import compute_scores
 from tqdm import tqdm
 import torch
@@ -40,6 +41,9 @@ class Trainer:
             os.mkdir(self.dev_res_dir)
         with open(config.config_dir + '/#' + str(self.run_index) + '.json', 'w', encoding='utf-8') as f:
             json.dump(config.attribute_dict, f)
+        if self._dataset == 'large':
+            self.prediction_dir = config.prediction_dir + '/#' + str(self.run_index)
+            os.mkdir(self.prediction_dir)
         self.dev_criterion = config.dev_criterion
         self.early_stopping_epoch = config.early_stopping_epoch
         self.auc_results = []
@@ -51,6 +55,7 @@ class Trainer:
         self.best_dev_mrr = 0
         self.best_dev_ndcg5 = 0
         self.best_dev_ndcg10 = 0
+        self.best_dev_avg = AvgMetric(0, 0, 0, 0)
         self.epoch_not_increase = 0
         self.gradient_clip_norm = config.gradient_clip_norm
         self.model.cuda()
@@ -117,7 +122,7 @@ class Trainer:
             print('loss =', epoch_loss / len(self.train_dataset))
 
             # validation
-            auc, mrr, ndcg5, ndcg10 = compute_scores(model, self.mind_corpus, self.batch_size, 'dev', self.dev_res_dir + '/' + model.model_name + '-' + str(e) + '.txt', self._dataset)
+            auc, mrr, ndcg5, ndcg10 = compute_scores(model, self.mind_corpus, self.batch_size * 3 // 2, 'dev', self.dev_res_dir + '/' + model.model_name + '-' + str(e) + '.txt', self._dataset)
             self.auc_results.append(auc)
             self.mrr_results.append(mrr)
             self.ndcg5_results.append(ndcg5)
@@ -151,9 +156,19 @@ class Trainer:
                     self.epoch_not_increase = 0
                 else:
                     self.epoch_not_increase += 1
-            else:
+            elif self.dev_criterion == 'ndcg10':
                 if ndcg10 >= self.best_dev_ndcg10:
                     self.best_dev_ndcg10 = ndcg10
+                    self.best_dev_epoch = e
+                    with open(self.result_dir + '/#' + str(self.run_index) + '-dev', 'w') as result_f:
+                        result_f.write('#' + str(self.run_index) + '\t' + str(auc) + '\t' + str(mrr) + '\t' + str(ndcg5) + '\t' + str(ndcg10) + '\n')
+                    self.epoch_not_increase = 0
+                else:
+                    self.epoch_not_increase += 1
+            else:
+                avg = AvgMetric(auc, mrr, ndcg5, ndcg10)
+                if avg >= self.best_dev_avg:
+                    self.best_dev_avg = avg
                     self.best_dev_epoch = e
                     with open(self.result_dir + '/#' + str(self.run_index) + '-dev', 'w') as result_f:
                         result_f.write('#' + str(self.run_index) + '\t' + str(auc) + '\t' + str(mrr) + '\t' + str(ndcg5) + '\t' + str(ndcg10) + '\n')
@@ -218,6 +233,9 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
             os.mkdir(dev_res_dir)
         with open(config.config_dir + '/#' + str(run_index) + '.json', 'w', encoding='utf-8') as f:
             json.dump(config.attribute_dict, f)
+        if config.dataset == 'large':
+            prediction_dir = config.prediction_dir + '/#' + str(run_index)
+            os.mkdir(prediction_dir)
         dev_criterion = config.dev_criterion
         early_stopping_epoch = config.early_stopping_epoch
         auc_results = []
@@ -229,6 +247,7 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
         best_dev_mrr = 0
         best_dev_ndcg5 = 0
         best_dev_ndcg10 = 0
+        best_dev_avg = AvgMetric(0, 0, 0, 0)
         epoch_not_increase = 0
         print('Running : ' + model_name + '\t#' + str(run_index))
 
@@ -241,27 +260,27 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
         epoch_loss = 0
         for (user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
             news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_content_text, news_content_mask, news_content_entity) in train_dataloader:
-            user_ID = user_ID.cuda(non_blocking=True)                                                                                                                      # [batch_size]
-            user_category = user_category.cuda(non_blocking=True)                                                                                                          # [batch_size, max_history_num]
-            user_subCategory = user_subCategory.cuda(non_blocking=True)                                                                                                    # [batch_size, max_history_num]
-            user_title_text = user_title_text.cuda(non_blocking=True)                                                                                                      # [batch_size, max_history_num, max_title_length]
-            user_title_mask = user_title_mask.cuda(non_blocking=True)                                                                                                      # [batch_size, max_history_num, max_title_length]
-            user_title_entity = user_title_entity.cuda(non_blocking=True)                                                                                                  # [batch_size, max_history_num, max_title_length]
-            user_content_text = user_content_text.cuda(non_blocking=True)                                                                                                  # [batch_size, max_history_num, max_content_length]
-            user_content_mask = user_content_mask.cuda(non_blocking=True)                                                                                                  # [batch_size, max_history_num, max_content_length]
-            user_content_entity = user_content_entity.cuda(non_blocking=True)                                                                                              # [batch_size, max_history_num, max_content_length]
-            user_history_mask = user_history_mask.cuda(non_blocking=True)                                                                                                  # [batch_size, max_history_num]
-            user_history_graph = user_history_graph.cuda(non_blocking=True)                                                                                                # [batch_size, max_history_num, max_history_num]
-            user_history_category_mask = user_history_category_mask.cuda(non_blocking=True)                                                                                # [batch_size, category_num + 1]
-            user_history_category_indices = user_history_category_indices.cuda(non_blocking=True)                                                                          # [batch_size, max_history_num]
-            news_category = news_category.cuda(non_blocking=True)                                                                                                          # [batch_size, 1 + negative_sample_num]
-            news_subCategory = news_subCategory.cuda(non_blocking=True)                                                                                                    # [batch_size, 1 + negative_sample_num]
-            news_title_text = news_title_text.cuda(non_blocking=True)                                                                                                      # [batch_size, 1 + negative_sample_num, max_title_length]
-            news_title_mask = news_title_mask.cuda(non_blocking=True)                                                                                                      # [batch_size, 1 + negative_sample_num, max_title_length]
-            news_title_entity = news_title_entity.cuda(non_blocking=True)                                                                                                  # [batch_size, 1 + negative_sample_num, max_title_length]
-            news_content_text = news_content_text.cuda(non_blocking=True)                                                                                                  # [batch_size, 1 + negative_sample_num, max_content_length]
-            news_content_mask = news_content_mask.cuda(non_blocking=True)                                                                                                  # [batch_size, 1 + negative_sample_num, max_content_length]
-            news_content_entity = news_content_entity.cuda(non_blocking=True)                                                                                              # [batch_size, 1 + negative_sample_num, max_content_length]
+            user_ID = user_ID.cuda(non_blocking=True)                                                                                                                       # [batch_size]
+            user_category = user_category.cuda(non_blocking=True)                                                                                                           # [batch_size, max_history_num]
+            user_subCategory = user_subCategory.cuda(non_blocking=True)                                                                                                     # [batch_size, max_history_num]
+            user_title_text = user_title_text.cuda(non_blocking=True)                                                                                                       # [batch_size, max_history_num, max_title_length]
+            user_title_mask = user_title_mask.cuda(non_blocking=True)                                                                                                       # [batch_size, max_history_num, max_title_length]
+            user_title_entity = user_title_entity.cuda(non_blocking=True)                                                                                                   # [batch_size, max_history_num, max_title_length]
+            user_content_text = user_content_text.cuda(non_blocking=True)                                                                                                   # [batch_size, max_history_num, max_content_length]
+            user_content_mask = user_content_mask.cuda(non_blocking=True)                                                                                                   # [batch_size, max_history_num, max_content_length]
+            user_content_entity = user_content_entity.cuda(non_blocking=True)                                                                                               # [batch_size, max_history_num, max_content_length]
+            user_history_mask = user_history_mask.cuda(non_blocking=True)                                                                                                   # [batch_size, max_history_num]
+            user_history_graph = user_history_graph.cuda(non_blocking=True)                                                                                                 # [batch_size, max_history_num, max_history_num]
+            user_history_category_mask = user_history_category_mask.cuda(non_blocking=True)                                                                                 # [batch_size, category_num + 1]
+            user_history_category_indices = user_history_category_indices.cuda(non_blocking=True)                                                                           # [batch_size, max_history_num]
+            news_category = news_category.cuda(non_blocking=True)                                                                                                           # [batch_size, 1 + negative_sample_num]
+            news_subCategory = news_subCategory.cuda(non_blocking=True)                                                                                                     # [batch_size, 1 + negative_sample_num]
+            news_title_text = news_title_text.cuda(non_blocking=True)                                                                                                       # [batch_size, 1 + negative_sample_num, max_title_length]
+            news_title_mask = news_title_mask.cuda(non_blocking=True)                                                                                                       # [batch_size, 1 + negative_sample_num, max_title_length]
+            news_title_entity = news_title_entity.cuda(non_blocking=True)                                                                                                   # [batch_size, 1 + negative_sample_num, max_title_length]
+            news_content_text = news_content_text.cuda(non_blocking=True)                                                                                                   # [batch_size, 1 + negative_sample_num, max_content_length]
+            news_content_mask = news_content_mask.cuda(non_blocking=True)                                                                                                   # [batch_size, 1 + negative_sample_num, max_content_length]
+            news_content_entity = news_content_entity.cuda(non_blocking=True)                                                                                               # [batch_size, 1 + negative_sample_num, max_content_length]
 
             logits = model(user_ID, user_category, user_subCategory, user_title_text, user_title_mask, user_title_entity, user_content_text, user_content_mask, user_content_entity, user_history_mask, user_history_graph, user_history_category_mask, user_history_category_indices, \
                            news_category, news_subCategory, news_title_text, news_title_mask, news_title_entity, news_content_text, news_content_mask, news_content_entity) # [batch_size, 1 + negative_sample_num]
@@ -284,7 +303,7 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
 
         # dev
         if rank == 0:
-            auc, mrr, ndcg5, ndcg10 = compute_scores(model.module, mind_corpus, batch_size, 'dev', dev_res_dir + '/' + model_name + '-' + str(e) + '.txt', config.dataset)
+            auc, mrr, ndcg5, ndcg10 = compute_scores(model.module, mind_corpus, batch_size * 3 // 2, 'dev', dev_res_dir + '/' + model_name + '-' + str(e) + '.txt', config.dataset)
             auc_results.append(auc)
             mrr_results.append(mrr)
             ndcg5_results.append(ndcg5)
@@ -318,7 +337,7 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
                     epoch_not_increase = 0
                 else:
                     epoch_not_increase += 1
-            else:
+            elif dev_criterion == 'ndcg10':
                 if ndcg10 >= best_dev_ndcg10:
                     best_dev_ndcg10 = ndcg10
                     best_dev_epoch = e
@@ -327,6 +346,17 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
                     epoch_not_increase = 0
                 else:
                     epoch_not_increase += 1
+            else:
+                avg = AvgMetric(auc, mrr, ndcg5, ndcg10)
+                if avg >= best_dev_avg:
+                    best_dev_avg = avg
+                    best_dev_epoch = e
+                    with open(result_dir + '/#' + str(run_index) + '-dev', 'w') as result_f:
+                        result_f.write('#' + str(run_index) + '\t' + str(auc) + '\t' + str(mrr) + '\t' + str(ndcg5) + '\t' + str(ndcg10) + '\n')
+                    epoch_not_increase = 0
+                else:
+                    epoch_not_increase += 1
+
             print('Best epoch :', best_dev_epoch)
             if dev_criterion == 'auc':
                 print('Best AUC : %.4f' % best_dev_auc)
@@ -334,8 +364,10 @@ def distributed_train(rank, model: nn.Module, config: Config, mind_corpus: MIND_
                 print('Best MRR : %.4f' % best_dev_mrr)
             elif dev_criterion == 'ndcg5':
                 print('Best nDCG@5 : %.4f' % best_dev_ndcg5)
-            else:
+            elif dev_criterion == 'ndcg10':
                 print('Best nDCG@10 : %.4f' % best_dev_ndcg10)
+            else:
+                print('Best avg : ' + str(best_dev_avg))
             torch.cuda.empty_cache()
             if epoch_not_increase == 0:
                 torch.save({model_name: model.module.state_dict()}, model_dir + '/' + model_name + '-' + str(best_dev_epoch))

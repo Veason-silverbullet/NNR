@@ -18,6 +18,7 @@ class NewsEncoder(nn.Module):
         self.category_embedding = nn.Embedding(num_embeddings=config.category_num, embedding_dim=config.category_embedding_dim)
         self.subCategory_embedding = nn.Embedding(num_embeddings=config.subCategory_num, embedding_dim=config.subCategory_embedding_dim)
         self.dropout = nn.Dropout(p=config.dropout_rate, inplace=True)
+        self.dropout_ = nn.Dropout(p=config.dropout_rate, inplace=False)
         self.auxiliary_loss = None
 
     def initialize(self):
@@ -99,12 +100,13 @@ class CNE(NewsEncoder):
         self.content_cross_attention.initialize()
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
-        title_mask = title_mask.view([batch_size * news_num, self.max_title_length])                                                                       # [batch_size * news_num, max_title_length]
-        content_mask = content_mask.view([batch_size * news_num, self.max_content_length])                                                                 # [batch_size * news_num, max_content_length]
-        title_mask[:, 0] = 1.0   # To avoid empty input of LSTM
-        content_mask[:, 0] = 1.0 # To avoid empty input of LSTM
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
+        title_mask = title_mask.view([batch_news_num, self.max_title_length])                                                                              # [batch_size * news_num, max_title_length]
+        content_mask = content_mask.view([batch_news_num, self.max_content_length])                                                                        # [batch_size * news_num, max_content_length]
+        title_mask[:, 0] = 1   # To avoid empty input of LSTM
+        content_mask[:, 0] = 1 # To avoid empty input of LSTM
         title_length = title_mask.sum(dim=1, keepdim=False).long()                                                                                         # [batch_size * news_num]
         content_length = content_mask.sum(dim=1, keepdim=False).long()                                                                                     # [batch_size * news_num]
         sorted_title_length, sorted_title_indices = torch.sort(title_length, descending=True)                                                              # [batch_size * news_num]
@@ -112,8 +114,8 @@ class CNE(NewsEncoder):
         sorted_content_length, sorted_content_indices = torch.sort(content_length, descending=True)                                                        # [batch_size * news_num]
         _, desorted_content_indices = torch.sort(sorted_content_indices, descending=False)                                                                 # [batch_size * news_num]
         # 1. word embedding
-        title = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_title_length, self.word_embedding_dim])                # [batch_size * news_num, max_title_length, word_embedding_dim]
-        content = self.dropout(self.word_embedding(content_text)).view([batch_size * news_num, self.max_content_length, self.word_embedding_dim])          # [batch_size * news_num, max_content_length, word_embedding_dim]
+        title = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_title_length, self.word_embedding_dim])                       # [batch_size * news_num, max_title_length, word_embedding_dim]
+        content = self.dropout(self.word_embedding(content_text)).view([batch_news_num, self.max_content_length, self.word_embedding_dim])                 # [batch_size * news_num, max_content_length, word_embedding_dim]
         sorted_title = pack_padded_sequence(title.index_select(0, sorted_title_indices), sorted_title_length.cpu(), batch_first=True)                      # [batch_size * news_num, max_title_length, word_embedding_dim]
         sorted_content = pack_padded_sequence(content.index_select(0, sorted_content_indices), sorted_content_length.cpu(), batch_first=True)              # [batch_size * news_num, max_content_length, word_embedding_dim]
         # 2. selective LSTM encoding
@@ -155,15 +157,16 @@ class CNN(NewsEncoder):
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
         batch_size = title_text.size(0)
         news_num = title_text.size(1)
-        mask = title_mask.view([batch_size * news_num, self.max_sentence_length])                                                                           # [batch_size * news_num, max_sentence_length]
+        batch_news_num = batch_size * news_num
+        mask = title_mask.view([batch_news_num, self.max_sentence_length])                                                          # [batch_size * news_num, max_sentence_length]
         # 1. word embedding
-        w = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_sentence_length, self.word_embedding_dim]).permute(0, 2, 1) # [batch_size * news_num, word_embedding_dim, max_sentence_length]
+        w = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_sentence_length, self.word_embedding_dim]) # [batch_size * news_num, max_sentence_length, word_embedding_dim]
         # 2. CNN encoding
-        c = self.dropout(self.conv(w).permute(0, 2, 1))                                                                                                     # [batch_size * news_num, max_sentence_length, cnn_kernel_num]
+        c = self.dropout_(self.conv(w.permute(0, 2, 1)).permute(0, 2, 1))                                                           # [batch_size * news_num, max_sentence_length, cnn_kernel_num]
         # 3. attention layer
-        news_representation = self.attention(c, mask=mask).view([batch_size, news_num, self.cnn_kernel_num])                                                # [batch_size, news_num, cnn_kernel_num]
+        news_representation = self.attention(c, mask=mask).view([batch_size, news_num, self.cnn_kernel_num])                        # [batch_size, news_num, cnn_kernel_num]
         # 4. feature fusion
-        news_representation = self.feature_fusion(news_representation, category, subCategory)                                                               # [batch_size, news_num, news_embedding_dim]
+        news_representation = self.feature_fusion(news_representation, category, subCategory)                                       # [batch_size, news_num, news_embedding_dim]
         return news_representation
 
 
@@ -184,15 +187,16 @@ class MHSA(NewsEncoder):
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
         batch_size = title_text.size(0)
         news_num = title_text.size(1)
-        mask = title_mask.view([batch_size * news_num, self.max_sentence_length])                                                          # [batch_size * news_num, max_sentence_length]
+        batch_news_num = batch_size * news_num
+        mask = title_mask.view([batch_news_num, self.max_sentence_length])                                                          # [batch_size * news_num, max_sentence_length]
         # 1. word embedding
-        w = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_sentence_length, self.word_embedding_dim]) # [batch_size * news_num, max_sentence_length, word_embedding_dim]
+        w = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_sentence_length, self.word_embedding_dim]) # [batch_size * news_num, max_sentence_length, word_embedding_dim]
         # 2. multi-head self-attention
-        c = self.dropout(self.multiheadAttention(w, w, w, mask))                                                                           # [batch_size * news_num, max_sentence_length, news_embedding_dim]
+        c = self.dropout(self.multiheadAttention(w, w, w, mask))                                                                    # [batch_size * news_num, max_sentence_length, news_embedding_dim]
         # 3. attention layer
-        news_representation = self.attention(c, mask=mask).view([batch_size, news_num, self.feature_dim])                                  # [batch_size, news_num, news_embedding_dim]
+        news_representation = self.attention(c, mask=mask).view([batch_size, news_num, self.feature_dim])                           # [batch_size, news_num, news_embedding_dim]
         # 4. feature fusion
-        news_representation = self.feature_fusion(news_representation, category, subCategory)                                              # [batch_size, news_num, news_embedding_dim]
+        news_representation = self.feature_fusion(news_representation, category, subCategory)                                       # [batch_size, news_num, news_embedding_dim]
         return news_representation
 
 
@@ -222,52 +226,18 @@ class KCNN(NewsEncoder):
         nn.init.zeros_(self.M_context.bias)
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
         # 1. word & entity & context embedding
-        word_embedding = self.word_embedding(title_text).view([batch_size * news_num, self.max_title_length, self.word_embedding_dim])                           # [batch_size * news_num, max_title_length, word_embedding_dim]
-        entity_embedding = self.entity_embedding(title_entity).view([batch_size * news_num, self.max_title_length, self.entity_embedding_dim])                   # [batch_size * news_num, max_title_length, entity_embedding_dim]
-        context_embedding = self.context_embedding(title_entity).view([batch_size * news_num, self.max_title_length, self.context_embedding_dim])                # [batch_size * news_num, max_title_length, context_embedding_dim]
+        word_embedding = self.word_embedding(title_text).view([batch_news_num, self.max_title_length, self.word_embedding_dim])                                  # [batch_size * news_num, max_title_length, word_embedding_dim]
+        entity_embedding = self.entity_embedding(title_entity).view([batch_news_num, self.max_title_length, self.entity_embedding_dim])                          # [batch_size * news_num, max_title_length, entity_embedding_dim]
+        context_embedding = self.context_embedding(title_entity).view([batch_news_num, self.max_title_length, self.context_embedding_dim])                       # [batch_size * news_num, max_title_length, context_embedding_dim]
         W = torch.stack([word_embedding, torch.tanh(self.M_entity(entity_embedding)), torch.tanh(self.M_context(context_embedding))], dim=3).permute(0, 2, 1, 3) # [batch_size * news_num, word_embedding_dim, max_title_length, 3]
         # 2. knowledge-aware CNN
         news_representation = self.knowledge_cnn(W).view([batch_size, news_num, self.cnn_kernel_num])                                                            # [batch_size, news_num, cnn_kernel_num]
         # 3. feature fusion
         news_representation = self.feature_fusion(news_representation, category, subCategory)                                                                    # [batch_size, news_num, news_embedding_dim]
-        return news_representation
-
-
-class PCNN(NewsEncoder):
-    def __init__(self, config: Config):
-        super(PCNN, self).__init__(config)
-        self.max_title_length = config.max_title_length
-        self.max_content_length = config.max_abstract_length
-        self.cnn_kernel_num = config.cnn_kernel_num
-        self.news_embedding_dim = config.cnn_kernel_num * 2 + config.category_embedding_dim + config.subCategory_embedding_dim
-        self.title_conv = Conv1D(config.cnn_method, config.word_embedding_dim, config.cnn_kernel_num, config.cnn_window_size)
-        self.content_conv = Conv1D(config.cnn_method, config.word_embedding_dim, config.cnn_kernel_num, config.cnn_window_size)
-
-    def initialize(self):
-        super().initialize()
-
-    def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
-        title_mask = title_mask.view([batch_size * news_num, self.max_title_length])                                                                                 # [batch_size * news_num, max_title_length]
-        content_mask = content_mask.view([batch_size * news_num, self.max_content_length])                                                                           # [batch_size * news_num, max_content_length]
-        # 1. word embedding
-        title_w = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_title_length, self.word_embedding_dim]).permute(0, 2, 1)       # [batch_size, news_num, max_title_length, word_embedding_dim]
-        content_w = self.dropout(self.word_embedding(content_text)).view([batch_size * news_num, self.max_content_length, self.word_embedding_dim]).permute(0, 2, 1) # [batch_size, news_num, max_content_length, word_embedding_dim]
-        # 2. CNN encoding
-        title_c = self.dropout(self.title_conv(title_w).permute(0, 2, 1))                                                                                            # [batch_size * news_num, max_title_length, cnn_kernel_num]
-        content_c = self.dropout(self.content_conv(content_w).permute(0, 2, 1))                                                                                      # [batch_size * news_num, max_content_length, cnn_kernel_num]
-        # 3. max pooling
-        title_representation, _ = title_c.max(dim=1, keepdim=False)                                                                                                  # [batch_size * news_num, cnn_kernel_num]
-        title_representation = title_representation.view([batch_size, news_num, self.cnn_kernel_num])                                                                # [batch_size, news_num, cnn_kernel_num]
-        content_representation, _ = content_c.max(dim=1, keepdim=False)                                                                                              # [batch_size * news_num, cnn_kernel_num]
-        content_representation = content_representation.view([batch_size, news_num, self.cnn_kernel_num])                                                            # [batch_size, news_num, cnn_kernel_num]
-        news_representation = torch.cat([title_representation, content_representation], dim=2)                                                                       # [batch_size, news_num, news_embedding_dim]
-        # 4. feature fusion
-        news_representation = self.feature_fusion(news_representation, category, subCategory)                                                                        # [batch_size, news_num, news_embedding_dim]
         return news_representation
 
 
@@ -292,12 +262,13 @@ class HDC(NewsEncoder):
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
         batch_size = title_text.size(0)
         news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
         # 1. sequence embeddings
         word_embedding = self.word_embedding(title_text).permute(0, 1, 3, 2)                                                 # [batch_size, news_num, word_embedding_dim, title_length]
         category_embedding = self.category_embedding(category).unsqueeze(dim=3)                                              # [batch_size, news_num, word_embedding_dim, 1]
         subCategory_embedding = self.subCategory_embedding(subCategory).unsqueeze(dim=3)                                     # [batch_size, news_num, word_embedding_dim, 1]
         d0 = torch.cat([category_embedding, subCategory_embedding, word_embedding], dim=3)                                   # [batch_size, news_num, word_embedding_dim, HDC_sequence_length]
-        d0 = d0.view([batch_size * news_num, self.word_embedding_dim, self.HDC_sequence_length])                             # [batch_size * news_num, word_embedding_dim, HDC_sequence_length]
+        d0 = d0.view([batch_news_num, self.word_embedding_dim, self.HDC_sequence_length])                                    # [batch_size * news_num, word_embedding_dim, HDC_sequence_length]
         # 2. hierarchical dilated convolution
         d1 = F.relu(self.layer_norm1(self.dilated_conv1(d0)), inplace=True)                                                  # [batch_size * news_num, HDC_filter_num, HDC_sequence_length]
         d2 = F.relu(self.layer_norm2(self.dilated_conv2(d1)), inplace=True)                                                  # [batch_size * news_num, HDC_filter_num, HDC_sequence_length]
@@ -336,24 +307,25 @@ class NAML(NewsEncoder):
         nn.init.xavier_uniform_(self.affine2.weight)
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        batch_size = category.size(0)
-        news_num = category.size(1)
+        batch_size = title_text.size(0)
+        news_num = title_text.size(1)
+        batch_news_num = batch_size * news_num
         # 1. word embedding
-        title_w = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_title_length, self.word_embedding_dim]).permute(0, 2, 1)       # [batch_size, news_num, max_title_length, word_embedding_dim]
-        content_w = self.dropout(self.word_embedding(content_text)).view([batch_size * news_num, self.max_content_length, self.word_embedding_dim]).permute(0, 2, 1) # [batch_size, news_num, max_content_length, word_embedding_dim]
+        title_w = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_title_length, self.word_embedding_dim])       # [batch_size * news_num, max_title_length, word_embedding_dim]
+        content_w = self.dropout(self.word_embedding(content_text)).view([batch_news_num, self.max_content_length, self.word_embedding_dim]) # [batch_size * news_num, max_content_length, word_embedding_dim]
         # 2. CNN encoding
-        title_c = self.dropout(self.title_conv(title_w).permute(0, 2, 1))                                                                                            # [batch_size * news_num, max_title_length, cnn_kernel_num]
-        content_c = self.dropout(self.content_conv(content_w).permute(0, 2, 1))                                                                                      # [batch_size * news_num, max_content_length, cnn_kernel_num]
+        title_c = self.dropout_(self.title_conv(title_w.permute(0, 2, 1)).permute(0, 2, 1))                                                  # [batch_size * news_num, max_title_length, cnn_kernel_num]
+        content_c = self.dropout_(self.content_conv(content_w.permute(0, 2, 1)).permute(0, 2, 1))                                            # [batch_size * news_num, max_content_length, cnn_kernel_num]
         # 3. attention layer
-        title_representation = self.title_attention(title_c).view([batch_size, news_num, self.cnn_kernel_num])                                                       # [batch_size, news_num, cnn_kernel_num]
-        content_representation = self.content_attention(content_c).view([batch_size, news_num, self.cnn_kernel_num])                                                 # [batch_size, news_num, cnn_kernel_num]
+        title_representation = self.title_attention(title_c).view([batch_size, news_num, self.cnn_kernel_num])                               # [batch_size, news_num, cnn_kernel_num]
+        content_representation = self.content_attention(content_c).view([batch_size, news_num, self.cnn_kernel_num])                         # [batch_size, news_num, cnn_kernel_num]
         # 4. category and subCategory encoding
-        category_representation = F.relu(self.category_affine(self.category_embedding(category)), inplace=True)                                                      # [batch_size, news_num, cnn_kernel_num]
-        subCategory_representation = F.relu(self.subCategory_affine(self.subCategory_embedding(subCategory)), inplace=True)                                          # [batch_size, news_num, cnn_kernel_num]
+        category_representation = F.relu(self.category_affine(self.category_embedding(category)), inplace=True)                              # [batch_size, news_num, cnn_kernel_num]
+        subCategory_representation = F.relu(self.subCategory_affine(self.subCategory_embedding(subCategory)), inplace=True)                  # [batch_size, news_num, cnn_kernel_num]
         # 5. multi-view attention
-        feature = torch.stack([title_representation, content_representation, category_representation, subCategory_representation], dim=2)                            # [batch_size, news_num, 4, cnn_kernel_num]
-        alpha = F.softmax(self.affine2(torch.tanh(self.affine1(feature))), dim=2)                                                                                    # [batch_size, news_num, 4, 1]
-        news_representation = (feature * alpha).sum(dim=2, keepdim=False)                                                                                            # [batch_size, news_num, cnn_kernel_num]
+        feature = torch.stack([title_representation, content_representation, category_representation, subCategory_representation], dim=2)    # [batch_size, news_num, 4, cnn_kernel_num]
+        alpha = F.softmax(self.affine2(torch.tanh(self.affine1(feature))), dim=2)                                                            # [batch_size, news_num, 4, 1]
+        news_representation = (feature * alpha).sum(dim=2, keepdim=False)                                                                    # [batch_size, news_num, cnn_kernel_num]
         return news_representation
 
 
@@ -377,16 +349,17 @@ class PNE(NewsEncoder):
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
         batch_size = title_text.size(0)
         news_num = title_text.size(1)
-        mask = title_mask.view([batch_size * news_num, self.max_sentence_length])                                                                           # [batch_size * news_num, max_sentence_length]
+        batch_news_num = batch_size * news_num
+        mask = title_mask.view([batch_news_num, self.max_sentence_length])                                                          # [batch_size * news_num, max_sentence_length]
         # 1. word embedding
-        w = self.dropout(self.word_embedding(title_text)).view([batch_size * news_num, self.max_sentence_length, self.word_embedding_dim]).permute(0, 2, 1) # [batch_size * news_num, word_embedding_dim, max_sentence_length]
+        w = self.dropout(self.word_embedding(title_text)).view([batch_news_num, self.max_sentence_length, self.word_embedding_dim]) # [batch_size * news_num, max_sentence_length, word_embedding_dim]
         # 2. CNN encoding
-        c = self.dropout(self.conv(w).permute(0, 2, 1))                                                                                                     # [batch_size * news_num, max_sentence_length, cnn_kernel_num]
+        c = self.dropout_(self.conv(w.permute(0, 2, 1)).permute(0, 2, 1))                                                           # [batch_size * news_num, max_sentence_length, cnn_kernel_num]
         # 3. attention layer
-        q_w = F.relu(self.dense(user_embedding), inplace=True).repeat([news_num, 1])                                                                        # [batch_size * news_num, personalized_embedding_dim]
-        news_representation = self.personalizedAttention(c, q_w, mask).view([batch_size, news_num, self.cnn_kernel_num])                                    # [batch_size, news_num, cnn_kernel_num]
+        q_w = F.relu(self.dense(user_embedding), inplace=True).repeat([news_num, 1])                                                # [batch_size * news_num, personalized_embedding_dim]
+        news_representation = self.personalizedAttention(c, q_w, mask).view([batch_size, news_num, self.cnn_kernel_num])            # [batch_size, news_num, cnn_kernel_num]
         # 4. feature fusion
-        news_representation = self.feature_fusion(news_representation, category, subCategory)                                                               # [batch_size, news_num, news_embedding_dim]
+        news_representation = self.feature_fusion(news_representation, category, subCategory)                                       # [batch_size, news_num, news_embedding_dim]
         return news_representation
 
 
@@ -442,12 +415,12 @@ class Inception(NewsEncoder):
         nn.init.zeros_(self.fc1_3.bias)
         nn.init.xavier_uniform_(self.fc2.weight, gain=nn.init.calculate_gain('relu'))
         nn.init.zeros_(self.fc2.bias)
-        nn.init.xavier_uniform_(self.linear_transform.weight, gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self.linear_transform.weight)
         nn.init.zeros_(self.linear_transform.bias)
 
     def forward(self, title_text, title_mask, title_entity, content_text, content_mask, content_entity, category, subCategory, user_embedding):
-        title_mask[:, :, 0] = 1.0   # To avoid zero-length title
-        content_mask[:, :, 0] = 1.0 # To avoid zero-length content
+        title_mask[:, :, 0] = 1   # To avoid zero-length title
+        content_mask[:, :, 0] = 1 # To avoid zero-length content
         title_embedding = (self.word_embedding(title_text) * title_mask.unsqueeze(dim=3)).sum(dim=2) / title_mask.sum(dim=2, keepdim=True)         # [batch_size, news_num, word_embedding_dim]
         content_embedding = (self.word_embedding(content_text) * content_mask.unsqueeze(dim=3)).sum(dim=2) / content_mask.sum(dim=2, keepdim=True) # [batch_size, news_num, word_embedding_dim]
         category_embedding = self.category_embedding(category)                                                                                     # [batch_size, news_num, category_embedding_dim]

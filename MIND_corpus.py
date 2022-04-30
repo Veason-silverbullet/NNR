@@ -171,7 +171,7 @@ class MIND_Corpus:
                     for line in behaviors_f:
                         user_history_num += 1
                 user_history_graph = np.zeros([user_history_num, graph_size, graph_size], dtype=np.float32)
-                user_history_category_mask = np.zeros([user_history_num, category_num + 1], dtype=np.float32)
+                user_history_category_mask = np.zeros([user_history_num, category_num + 1], dtype=bool)
                 user_history_category_indices = np.zeros([user_history_num, config.max_history_num], dtype=np.int64)
                 with open(os.path.join(prefix, 'behaviors.tsv'), 'r', encoding='utf-8') as behaviors_f:
                     for line_index, line in enumerate(behaviors_f):
@@ -180,7 +180,7 @@ class MIND_Corpus:
                             history_graph = np.zeros([graph_size, graph_size], dtype=np.float32)
                         else:
                             history_graph = np.identity(graph_size, dtype=np.float32)
-                        history_category_mask = np.zeros(category_num + 1, dtype=np.float32) # extra one category index for padding news
+                        history_category_mask = np.zeros(category_num + 1, dtype=bool) # extra one category index for padding news
                         history_category_indices = np.full([config.max_history_num], category_num, dtype=np.int64)
                         if len(history.strip()) > 0:
                             history_news_ID = history.split(' ')
@@ -188,7 +188,7 @@ class MIND_Corpus:
                             history_news_num = min(len(history_news_ID), config.max_history_num)
                             for i in range(history_news_num):
                                 category_index = news_category_dict[history_news_ID[i + offset]]
-                                history_category_mask[category_index] = 1.0
+                                history_category_mask[category_index] = 1
                                 history_category_indices[i] = category_index
                                 history_graph[i, config.max_history_num + category_index] = 1 # edge of E_{p}^{1} in inter-cluster graph G2
                                 history_graph[config.max_history_num + category_index, i] = 1 # edge of E_{p}^{1} in inter-cluster graph G2
@@ -261,10 +261,10 @@ class MIND_Corpus:
         self.news_category = np.zeros([self.news_num], dtype=np.int32)                                  # [news_num]
         self.news_subCategory = np.zeros([self.news_num], dtype=np.int32)                               # [news_num]
         self.news_title_text = np.zeros([self.news_num, self.max_title_length], dtype=np.int32)         # [news_num, max_title_length]
-        self.news_title_mask = np.zeros([self.news_num, self.max_title_length], dtype=np.float32)       # [news_num, max_title_length]
+        self.news_title_mask = np.zeros([self.news_num, self.max_title_length], dtype=bool)             # [news_num, max_title_length]
         self.news_title_entity = np.zeros([self.news_num, self.max_title_length], dtype=np.int32)       # [news_num, max_title_length]
         self.news_abstract_text = np.zeros([self.news_num, self.max_abstract_length], dtype=np.int32)   # [news_num, max_abstract_length]
-        self.news_abstract_mask = np.zeros([self.news_num, self.max_abstract_length], dtype=np.float32) # [news_num, max_abstract_length]
+        self.news_abstract_mask = np.zeros([self.news_num, self.max_abstract_length], dtype=bool)       # [news_num, max_abstract_length]
         self.news_abstract_entity = np.zeros([self.news_num, self.max_abstract_length], dtype=np.int32) # [news_num, max_abstract_length]
         self.train_behaviors = []                                                                       # [user_ID, [history], [history_mask], click impression, [non-click impressions], behavior_index]
         self.dev_behaviors = []                                                                         # [user_ID, [history], [history_mask], candidate_news_ID, behavior_index]
@@ -367,13 +367,13 @@ class MIND_Corpus:
                     history = list(map(lambda x: self.news_ID_dict[x], history.strip().split(' ')))
                     padding_num = max(0, self.max_history_num - len(history))
                     user_history = history[-self.max_history_num:] + [0] * padding_num
-                    user_history_mask = np.zeros([self.max_history_num], dtype=np.float32)
-                    user_history_mask[:min(len(history), self.max_history_num)] = 1.0
+                    user_history_mask = np.zeros([self.max_history_num], dtype=bool)
+                    user_history_mask[:min(len(history), self.max_history_num)] = 1
                     for click_impression in click_impressions:
                         self.train_behaviors.append([self.user_ID_dict[user_ID], user_history, user_history_mask, click_impression, non_click_impressions, behavior_index])
                 else:
                     for click_impression in click_impressions:
-                        self.train_behaviors.append([self.user_ID_dict[user_ID], [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), click_impression, non_click_impressions, behavior_index])
+                        self.train_behaviors.append([self.user_ID_dict[user_ID], [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=bool), click_impression, non_click_impressions, behavior_index])
         with open(os.path.join(config.dev_root, 'behaviors.tsv'), 'r', encoding='utf-8') as dev_behaviors_f:
             for dev_ID, line in enumerate(dev_behaviors_f):
                 impression_ID, user_ID, time, history, impressions = line.split('\t')
@@ -381,15 +381,15 @@ class MIND_Corpus:
                     history = list(map(lambda x: self.news_ID_dict[x], history.strip().split(' ')))
                     padding_num = max(0, self.max_history_num - len(history))
                     user_history = history[-self.max_history_num:] + [0] * padding_num
-                    user_history_mask = np.zeros([self.max_history_num], dtype=np.float32)
-                    user_history_mask[:min(len(history), self.max_history_num)] = 1.0
+                    user_history_mask = np.zeros([self.max_history_num], dtype=bool)
+                    user_history_mask[:min(len(history), self.max_history_num)] = 1
                     for impression in impressions.strip().split(' '):
                         self.dev_indices.append(dev_ID)
                         self.dev_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, user_history, user_history_mask, self.news_ID_dict[impression[:-2]], dev_ID])
                 else:
                     for impression in impressions.strip().split(' '):
                         self.dev_indices.append(dev_ID)
-                        self.dev_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), self.news_ID_dict[impression[:-2]], dev_ID])
+                        self.dev_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=bool), self.news_ID_dict[impression[:-2]], dev_ID])
         with open(os.path.join(config.test_root, 'behaviors.tsv'), 'r', encoding='utf-8') as test_behaviors_f:
             for test_ID, line in enumerate(test_behaviors_f):
                 impression_ID, user_ID, time, history, impressions = line.split('\t')
@@ -397,8 +397,8 @@ class MIND_Corpus:
                     history = list(map(lambda x: self.news_ID_dict[x], history.strip().split(' ')))
                     padding_num = max(0, self.max_history_num - len(history))
                     user_history = history[-self.max_history_num:] + [0] * padding_num
-                    user_history_mask = np.zeros([self.max_history_num], dtype=np.float32)
-                    user_history_mask[:min(len(history), self.max_history_num)] = 1.0
+                    user_history_mask = np.zeros([self.max_history_num], dtype=bool)
+                    user_history_mask[:min(len(history), self.max_history_num)] = 1
                     for impression in impressions.strip().split(' '):
                         self.test_indices.append(test_ID)
                         if config.dataset != 'large':
@@ -409,6 +409,6 @@ class MIND_Corpus:
                     for impression in impressions.strip().split(' '):
                         self.test_indices.append(test_ID)
                         if config.dataset != 'large':
-                            self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), self.news_ID_dict[impression[:-2]], test_ID])
+                            self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=bool), self.news_ID_dict[impression[:-2]], test_ID])
                         else:
-                            self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=np.float32), self.news_ID_dict[impression], test_ID])
+                            self.test_behaviors.append([self.user_ID_dict[user_ID] if user_ID in self.user_ID_dict else 0, [0 for _ in range(self.max_history_num)], np.zeros([self.max_history_num], dtype=bool), self.news_ID_dict[impression], test_ID])

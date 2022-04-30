@@ -4,7 +4,7 @@ This repository is for the paper [**Neural News Recommendation with Collaborativ
 
 
 ## Dataset Preparation
-The experiments are conducted on the 200k-MIND dataset. Our code will try to download and sample the 200k-MIND dataset to the directory `../MIND-200k` (see Line 128 of `config.py` and `prepare_MIND_dataset.py`).
+The experiments are conducted on the 200k-MIND dataset. Our code will try to download and sample the 200k-MIND dataset to the directory `../MIND-200k` (see Line 140 of `config.py` and `prepare_MIND_dataset.py`).
 
 Since the MIND dataset is quite large, if our code cannot download it successfully due to unstable network connection, please execute the shell file `download_extract_MIND.sh` instead. If the automatic download still fails, we recommend to download the MIND dataset and knowledge graph manually according to the links in `download_extract_MIND.sh`.
 
@@ -39,7 +39,7 @@ Assume that now the pwd is `./NNR`, the downloaded and extracted MIND dataset sh
 ## Environment Requirements
     (terminal) $ pip install -r requirements.txt
 
-Our experiments require python3 and torch>=1.9.0. The [torch_scatter](https://github.com/rusty1s/pytorch_scatter) package is also neccessary. Our code will try to install it automatically (see Line 11 of `userEncoders.py`).
+Our experiments require python3, torch>=1.9.0 & <=1.11.0, and torch_scatter>=2.0.9. The [torch_scatter](https://github.com/rusty1s/pytorch_scatter) package is neccessary. Our code will try to install it automatically (see Line 10 of `userEncoders.py`).
 If the automatic installation fails, please follow [https://github.com/rusty1s/pytorch_scatter](https://github.com/rusty1s/pytorch_scatter) to install the package manually.
 <br/><br/>
 
@@ -50,8 +50,8 @@ If the automatic installation fails, please follow [https://github.com/rusty1s/p
 
 <hr>Neural news recommendation baselines in Section 4.2
 <pre><code>python main.py --news_encoder=DAE       --user_encoder=GRU
-python main.py --news_encoder=Inception --user_encoder=CATT  --category_embedding_dim=300 --subCategory_embedding_dim=300
-python main.py --news_encoder=KCNN      --user_encoder=CATT  --word_embedding_dim=100 --entity_embedding_dim=100 --context_embedding_dim=100
+python main.py --news_encoder=Inception --user_encoder=CATT  --word_embedding_dim=100 --category_embedding_dim=100 --subCategory_embedding_dim=100
+python main.py --news_encoder=KCNN      --user_encoder=CATT  --word_embedding_dim=100 --entity_embedding_dim=100   --context_embedding_dim=100
 python main.py --news_encoder=CNN       --user_encoder=LSTUR
 python main.py --news_encoder=NAML      --user_encoder=ATT
 python main.py --news_encoder=PNE       --user_encoder=PUE
@@ -112,14 +112,14 @@ Experiments on MIND-small and MIND-large are available. You can specify the expe
 
 If you would like to conduct experiments on MIND-small, please set the config parameter `--dataset=small`.
 
-For MIND-small, we suggest the number of GCN layers of 3 and dropout rate of 0.3. Example command is as below:
-<pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --dataset=small --gcn_layer_num=3 --dropout_rate=0.3</code></pre>
+For MIND-small, we suggest the number of GCN layers of 3 and dropout rate of 0.25 (see Line 84 of `config.py`). Example command is as below:
+<pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --dataset=small --gcn_layer_num=3 --dropout_rate=0.25</code></pre>
 
 If you would like to conduct experiments on MIND-large, please set the config parameter `--dataset=large`.
 
-For MIND-large, we suggest the number of GCN layers of 4 and dropout rate of 0.1. Example command is as below:
+For MIND-large, we suggest the number of GCN layers of 4 and dropout rate of 0.1 (see Line 91 of `config.py`). Example command is as below:
 <pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --dataset=large --gcn_layer_num=4 --dropout_rate=0.1</code></pre>
-For MIND-large, please manually zip and submit the model prediction file to [*MIND leaderboard*](https://msnews.github.io/index.html#leaderboard) for performance evaluation. For example, having finished training, our model prediction file is at `test/res/large/CNE-SUE/best_model_CNE-SUE_#1_CNE-SUE/CNE-SUE.txt`.
+For MIND-large, please submit the model prediction file to [*MIND leaderboard*](https://msnews.github.io/index.html#leaderboard) for performance evaluation. For example, having finished training model #1, the model prediction file is at `prediction/large/CNE-SUE/#1/prediction.zip`. If the prediction zip file is not found, please find the raw prediction file at `test/res/large/CNE-SUE/best_model_CNE-SUE_#1_CNE-SUE/CNE-SUE.txt`.
 <br/><br/>
 
 
