@@ -119,7 +119,7 @@ If you would like to conduct experiments on MIND-large, please set the config pa
 
 For MIND-large, we suggest the number of GCN layers of 4 and dropout rate of 0.1 (see Line 91 of `config.py`). Example command is as below:
 <pre><code>python main.py --news_encoder=CNE --user_encoder=SUE --dataset=large --gcn_layer_num=4 --dropout_rate=0.1</code></pre>
-For MIND-large, please submit the model prediction file to [*MIND leaderboard*](https://msnews.github.io/index.html#leaderboard) for performance evaluation. For example, having finished training model #1, the model prediction file is at `prediction/large/CNE-SUE/#1/prediction.zip`. If the prediction zip file is not found, please find the raw prediction file at `test/res/large/CNE-SUE/best_model_CNE-SUE_#1_CNE-SUE/CNE-SUE.txt`.
+For MIND-large, please submit the model prediction file to [*MIND leaderboard*](https://msnews.github.io/index.html#leaderboard) for performance evaluation. For example, having finished training model #1, the model prediction file is at `prediction/large/CNE-SUE/#1/prediction.zip`. If the prediction zip file is not found, please find the raw prediction file at `test/res/large/CNE-SUE/best_model_large_CNE-SUE_#1_CNE-SUE/CNE-SUE.txt`.
 <br/><br/>
 
 

@@ -91,7 +91,7 @@ class Config:
         else: # suggested configuration for MIND-large
             self.dropout_rate = 0.1
             self.gcn_layer_num = 4
-            self.epoch = 7
+            self.epoch = 6
         self.seed = self.seed if self.seed >= 0 else (int)(time.time())
         self.attribute_dict['dropout_rate'] = self.dropout_rate
         self.attribute_dict['gcn_layer_num'] = self.gcn_layer_num

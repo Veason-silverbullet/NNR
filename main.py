@@ -42,7 +42,7 @@ def dev(config: Config, mind_corpus: MIND_Corpus):
     dev_res_dir = os.path.join(config.dev_res_dir, config.dev_model_path.replace('\\', '_').replace('/', '_'))
     if not os.path.exists(dev_res_dir):
         os.mkdir(dev_res_dir)
-    auc, mrr, ndcg5, ndcg10 = compute_scores(model, mind_corpus, config.batch_size * 2, 'dev', dev_res_dir + '/' + model.model_name + '.txt', config.dataset)
+    auc, mrr, ndcg5, ndcg10 = compute_scores(model, mind_corpus, config.batch_size * 2 // config.world_size, 'dev', dev_res_dir + '/' + model.model_name + '.txt', config.dataset)
     print('Dev : ' + config.dev_model_path)
     print('AUC : %.4f\nMRR : %.4f\nnDCG@5 : %.4f\nnDCG@10 : %.4f' % (auc, mrr, ndcg5, ndcg10))
     return auc, mrr, ndcg5, ndcg10
@@ -58,7 +58,7 @@ def test(config: Config, mind_corpus: MIND_Corpus):
         os.mkdir(test_res_dir)
     print('test model path  : ' + config.test_model_path)
     print('test output file : ' + test_res_dir + '/' + model.model_name + '.txt')
-    auc, mrr, ndcg5, ndcg10 = compute_scores(model, mind_corpus, config.batch_size * 2, 'test', test_res_dir + '/' + model.model_name + '.txt', config.dataset)
+    auc, mrr, ndcg5, ndcg10 = compute_scores(model, mind_corpus, config.batch_size * 2 // config.world_size, 'test', test_res_dir + '/' + model.model_name + '.txt', config.dataset)
     if config.dataset != 'large':
         print('AUC : %.4f\nMRR : %.4f\nnDCG@5 : %.4f\nnDCG@10 : %.4f' % (auc, mrr, ndcg5, ndcg10))
         if config.mode == 'train':
