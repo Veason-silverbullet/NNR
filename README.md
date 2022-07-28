@@ -144,3 +144,6 @@ The command above trains our model on 4 GPUs, each GPU contains the mini-batch d
     pages = "46--55"
 }
 ```
+
+This work was first submitted to ACL 2021. The pre-rebuttal scores were 3.5, 3.5, 2, and the post-rebuttal scores became 3.5, 3.5, 1.5. We thank some unbelievable reviewer comments in that review.
+![](general_recommendation_methods/disclaimer.png)
