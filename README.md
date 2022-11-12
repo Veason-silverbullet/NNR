@@ -116,7 +116,6 @@ Benchmark performance of our model `CNE-SUE` (performance averaged on 10 times e
 |-------|---|---|------|-------|
 |MIND-small|68.12|32.68|36.34|42.58|
 |MIND-large|69.32|34.39|37.62|43.32|
-<br/><br/>
 
 ## Distributed Training & Faster Inference
 Distributed training is supported. If you would like to train NNR models on N GPUs, please set the config parameter `--world_size=N`. The batch size config parameter `batch_size` should be divisible by `world_size`, as our code equally divides the training batch size into N GPUs. For example,
