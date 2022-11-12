@@ -65,10 +65,10 @@ class CNE(NewsEncoder):
         # selective LSTM encoder
         self.title_lstm = nn.LSTM(self.word_embedding_dim, self.hidden_dim, batch_first=True, bidirectional=True)
         self.content_lstm = nn.LSTM(self.word_embedding_dim, self.hidden_dim, batch_first=True, bidirectional=True)
-        self.title_H = nn.Linear(in_features=self.hidden_dim * 2, out_features=self.hidden_dim * 2, bias=False)
-        self.title_M = nn.Linear(in_features=self.hidden_dim * 2, out_features=self.hidden_dim * 2, bias=True)
-        self.content_H = nn.Linear(in_features=self.hidden_dim * 2, out_features=self.hidden_dim * 2, bias=False)
-        self.content_M = nn.Linear(in_features=self.hidden_dim * 2, out_features=self.hidden_dim * 2, bias=True)
+        self.title_H = nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2, bias=False)
+        self.title_M = nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2, bias=True)
+        self.content_H = nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2, bias=False)
+        self.content_M = nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2, bias=True)
         # self-attention
         self.title_self_attention = Attention(self.hidden_dim * 2, config.attention_dim)
         self.content_self_attention = Attention(self.hidden_dim * 2, config.attention_dim)
@@ -213,8 +213,8 @@ class KCNN(NewsEncoder):
             self.entity_embedding.weight.data.copy_(pickle.load(entity_embedding_f))
         with open('context_embedding-%s.pkl' % config.dataset, 'rb') as context_embedding_f:
             self.context_embedding.weight.data.copy_(pickle.load(context_embedding_f))
-        self.M_entity = nn.Linear(in_features=self.entity_embedding_dim, out_features=self.word_embedding_dim, bias=True)
-        self.M_context = nn.Linear(in_features=self.context_embedding_dim, out_features=self.word_embedding_dim, bias=True)
+        self.M_entity = nn.Linear(self.entity_embedding_dim, self.word_embedding_dim, bias=True)
+        self.M_context = nn.Linear(self.context_embedding_dim, self.word_embedding_dim, bias=True)
         self.knowledge_cnn = Conv2D_Pool(config.cnn_method, config.word_embedding_dim, config.cnn_kernel_num, config.cnn_window_size, 3)
         self.news_embedding_dim = config.cnn_kernel_num + config.category_embedding_dim + config.subCategory_embedding_dim
 
@@ -289,10 +289,10 @@ class NAML(NewsEncoder):
         self.content_conv = Conv1D(config.cnn_method, config.word_embedding_dim, config.cnn_kernel_num, config.cnn_window_size)
         self.title_attention = Attention(config.cnn_kernel_num, config.attention_dim)
         self.content_attention = Attention(config.cnn_kernel_num, config.attention_dim)
-        self.category_affine = nn.Linear(in_features=config.category_embedding_dim, out_features=config.cnn_kernel_num, bias=True)
-        self.subCategory_affine = nn.Linear(in_features=config.subCategory_embedding_dim, out_features=config.cnn_kernel_num, bias=True)
-        self.affine1 = nn.Linear(in_features=config.cnn_kernel_num, out_features=config.attention_dim, bias=True)
-        self.affine2 = nn.Linear(in_features=config.attention_dim, out_features=1, bias=False)
+        self.category_affine = nn.Linear(config.category_embedding_dim, config.cnn_kernel_num, bias=True)
+        self.subCategory_affine = nn.Linear(config.subCategory_embedding_dim, config.cnn_kernel_num, bias=True)
+        self.affine1 = nn.Linear(config.cnn_kernel_num, config.attention_dim, bias=True)
+        self.affine2 = nn.Linear(config.attention_dim, 1, bias=False)
 
     def initialize(self):
         super().initialize()
@@ -336,7 +336,7 @@ class PNE(NewsEncoder):
         self.cnn_kernel_num = config.cnn_kernel_num
         self.personalized_embedding_dim = config.personalized_embedding_dim
         self.conv = Conv1D(config.cnn_method, config.word_embedding_dim, config.cnn_kernel_num, config.cnn_window_size)
-        self.dense = nn.Linear(in_features=config.user_embedding_dim, out_features=config.personalized_embedding_dim, bias=True)
+        self.dense = nn.Linear(config.user_embedding_dim, config.personalized_embedding_dim, bias=True)
         self.personalizedAttention = CandidateAttention(config.cnn_kernel_num, config.personalized_embedding_dim, config.attention_dim)
         self.news_embedding_dim = config.cnn_kernel_num + config.category_embedding_dim + config.subCategory_embedding_dim
 
@@ -368,8 +368,8 @@ class DAE(NewsEncoder):
         super(DAE, self).__init__(config)
         self.Alpha = config.Alpha
         assert self.Alpha > 0, 'Reconstruction loss weight must be greater than 0'
-        self.f1 = nn.Linear(in_features=config.word_embedding_dim, out_features=config.hidden_dim, bias=True)
-        self.f2 = nn.Linear(in_features=config.hidden_dim, out_features=config.word_embedding_dim, bias=True)
+        self.f1 = nn.Linear(config.word_embedding_dim, config.hidden_dim, bias=True)
+        self.f2 = nn.Linear(config.hidden_dim, config.word_embedding_dim, bias=True)
         self.news_embedding_dim = config.hidden_dim + config.category_embedding_dim + config.subCategory_embedding_dim
         self.dropout_ = nn.Dropout(p=config.dropout_rate, inplace=False)
 
@@ -398,11 +398,11 @@ class Inception(NewsEncoder):
     def __init__(self, config: Config):
         super(Inception, self).__init__(config)
         assert config.word_embedding_dim == config.category_embedding_dim and config.word_embedding_dim == config.subCategory_embedding_dim, 'embedding dimension must be the same in the Inception module'
-        self.fc1_1 = nn.Linear(in_features=config.word_embedding_dim*4, out_features=config.hidden_dim, bias=True)
-        self.fc1_2 = nn.Linear(in_features=config.hidden_dim, out_features=config.hidden_dim, bias=True)
-        self.fc1_3 = nn.Linear(in_features=config.hidden_dim, out_features=config.word_embedding_dim, bias=True)
-        self.fc2 = nn.Linear(in_features=config.word_embedding_dim*4, out_features=config.word_embedding_dim, bias=True)
-        self.linear_transform = nn.Linear(in_features=config.word_embedding_dim*3, out_features=config.word_embedding_dim, bias=True)
+        self.fc1_1 = nn.Linear(config.word_embedding_dim*4, config.hidden_dim, bias=True)
+        self.fc1_2 = nn.Linear(config.hidden_dim, config.hidden_dim, bias=True)
+        self.fc1_3 = nn.Linear(config.hidden_dim, config.word_embedding_dim, bias=True)
+        self.fc2 = nn.Linear(config.word_embedding_dim*4, config.word_embedding_dim, bias=True)
+        self.linear_transform = nn.Linear(config.word_embedding_dim*3, config.word_embedding_dim, bias=True)
         self.news_embedding_dim = config.word_embedding_dim
 
     def initialize(self):

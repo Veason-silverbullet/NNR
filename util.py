@@ -68,45 +68,6 @@ def compute_scores(model: nn.Module, mind_corpus: MIND_Corpus, batch_size: int, 
         return None, None, None, None
 
 
-def try_to_install_torch_scatter_package():
-    try:
-        import torch_scatter # already installed
-    except Exception as e:
-        import torch
-        torch_version = torch.__version__.split('+')[0]
-        torch_version = torch_version[:-1] + '0' # e.g., 1.10.2 is compatible with 1.10.0
-        cuda_version = None
-        temp_gpu_info_file = 'gpuinfo.txt'
-        os.system('nvidia-smi > ' + temp_gpu_info_file)
-        with open('gpuinfo.txt', 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if 'CUDA Version:' in line:
-                    cuda_info_str = line[line.find('CUDA Version:'):]
-                    if torch_version == '1.11.0':
-                        if '10.' in cuda_info_str:
-                            cuda_version = 'cu102'
-                        elif '11.0' in cuda_info_str or '11.1' in cuda_info_str or '11.2' in cuda_info_str or '11.3' in cuda_info_str:
-                            cuda_version = 'cu113'
-                        elif '11.' in cuda_info_str:
-                            cuda_version = 'cu115'
-                    else:
-                        if '10.' in cuda_info_str:
-                            cuda_version = 'cu102'
-                        elif '11.0' in cuda_info_str or '11.1' in cuda_info_str:
-                            cuda_version = 'cu111'
-                        elif '11.' in cuda_info_str:
-                            cuda_version = 'cu113'
-                    break
-        if os.path.exists(temp_gpu_info_file):
-            os.remove(temp_gpu_info_file)
-        if cuda_version is not None:
-            try:
-                os.system('pip install torch-scatter -f https://data.pyg.org/whl/torch-%s+%s.html' % (torch_version, cuda_version)) # pip install
-            except Exception as _e:
-                print('Please install `torch_scatter` package manually')
-
-
 def get_run_index(result_dir: str):
     assert os.path.exists(result_dir), 'result directory does not exist'
     max_index = 0

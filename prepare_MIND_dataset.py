@@ -50,19 +50,22 @@ def download_extract_MIND_large(mode):
         os.mkdir(dataset_root)
     if not os.path.exists(dataset_root + '/download'):
         os.mkdir(dataset_root + '/download')
-    if not os.path.exists(dataset_root + '/download/train'):
+    if (not os.path.exists(dataset_root + '/train/news.tsv') or not os.path.exists(dataset_root + '/train/behaviors.tsv') or not os.path.exists(dataset_root + '/train/entity_embedding.vec')) and \
+        not os.path.exists(dataset_root + '/download/train'):
         if not os.path.exists(dataset_root + '/download/MINDlarge_train.zip'):
             os.system('wget https://mind201910small.blob.core.windows.net/release/MINDlarge_train.zip -P %s/download' % dataset_root)
         assert os.path.exists(dataset_root + '/download/MINDlarge_train.zip'), 'Train set zip not found'
         os.mkdir(dataset_root + '/download/train')
         os.system('unzip %s/download/MINDlarge_train.zip -d %s/download/train' % (dataset_root, dataset_root))
-    if not os.path.exists(dataset_root + '/download/dev'):
+    if (not os.path.exists(dataset_root + '/dev/news.tsv') or not os.path.exists(dataset_root + '/dev/behaviors.tsv') or not os.path.exists(dataset_root + '/dev/entity_embedding.vec')) and \
+        not os.path.exists(dataset_root + '/download/dev'):
         if not os.path.exists(dataset_root + '/download/MINDlarge_dev.zip'):
             os.system('wget https://mind201910small.blob.core.windows.net/release/MINDlarge_dev.zip -P %s/download' % dataset_root)
         assert os.path.exists(dataset_root + '/download/MINDlarge_dev.zip'), 'Dev set zip not found'
         os.mkdir(dataset_root + '/download/dev')
         os.system('unzip %s/download/MINDlarge_dev.zip -d %s/download/dev' % (dataset_root, dataset_root))
-    if not os.path.exists(dataset_root + '/download/test'):
+    if (not os.path.exists(dataset_root + '/test/news.tsv') or not os.path.exists(dataset_root + '/test/behaviors.tsv') or not os.path.exists(dataset_root + '/test/entity_embedding.vec')) and \
+        not os.path.exists(dataset_root + '/download/test'):
         if not os.path.exists(dataset_root + '/download/MINDlarge_test.zip'):
             os.system('wget https://mind201910small.blob.core.windows.net/release/MINDlarge_test.zip -P %s/download' % dataset_root)
         assert os.path.exists(dataset_root + '/download/MINDlarge_test.zip'), 'Test set zip not found'
@@ -74,8 +77,10 @@ def download_extract_MIND_large(mode):
         os.system('unzip %s/download/wikidata-graph.zip -d %s/download' % (dataset_root, dataset_root))
     if mode == 'large':
         for data in ['train', 'dev', 'test']:
-            shutil.copyfile('../MIND-large/download/%s/news.tsv' % data, '../MIND-large/%s/news.tsv' % data)
-            shutil.copyfile('../MIND-large/download/%s/behaviors.tsv' % data, '../MIND-large/%s/behaviors.tsv' % data)
+            if not os.path.exists('../MIND-large/%s/news.tsv' % data):
+                shutil.copyfile('../MIND-large/download/%s/news.tsv' % data, '../MIND-large/%s/news.tsv' % data)
+            if not os.path.exists('../MIND-large/%s/behaviors.tsv' % data):
+                shutil.copyfile('../MIND-large/download/%s/behaviors.tsv' % data, '../MIND-large/%s/behaviors.tsv' % data)
 
 
 def split_training_behaviors():
@@ -201,12 +206,16 @@ def sampling_MIND_dataset():
 def generate_knowledge_entity_embedding(data_mode):
     assert data_mode in ['200k', 'small', 'large']
     # 1. copy entity embedding file
-    shutil.copyfile('../MIND-%s/download/train/entity_embedding.vec' % data_mode, '../MIND-%s/train/entity_embedding.vec' % data_mode)
-    shutil.copyfile('../MIND-%s/download/dev/entity_embedding.vec' % data_mode, '../MIND-%s/dev/entity_embedding.vec' % data_mode)
+    if not os.path.exists('../MIND-%s/train/entity_embedding.vec' % data_mode):
+        shutil.copyfile('../MIND-%s/download/train/entity_embedding.vec' % data_mode, '../MIND-%s/train/entity_embedding.vec' % data_mode)
+    if not os.path.exists('../MIND-%s/dev/entity_embedding.vec' % data_mode):
+        shutil.copyfile('../MIND-%s/download/dev/entity_embedding.vec' % data_mode, '../MIND-%s/dev/entity_embedding.vec' % data_mode)
     if data_mode in ['200k', 'small']:
-        shutil.copyfile('../MIND-%s/download/dev/entity_embedding.vec' % data_mode, '../MIND-%s/test/entity_embedding.vec' % data_mode)
+        if not os.path.exists('../MIND-%s/test/entity_embedding.vec' % data_mode):
+            shutil.copyfile('../MIND-%s/download/dev/entity_embedding.vec' % data_mode, '../MIND-%s/test/entity_embedding.vec' % data_mode)
     else:
-        shutil.copyfile('../MIND-large/download/test/entity_embedding.vec', '../MIND-large/test/entity_embedding.vec')
+        if not os.path.exists('../MIND-large/test/entity_embedding.vec'):
+            shutil.copyfile('../MIND-large/download/test/entity_embedding.vec', '../MIND-large/test/entity_embedding.vec')
     # 2. generate context embedding file
     entity_embeddings = {}
     entity_embedding_files = ['../MIND-%s/%s/entity_embedding.vec' % (data_mode, mode) for mode in ['train', 'dev', 'test']]

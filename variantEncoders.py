@@ -6,8 +6,6 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.nn.utils.rnn import pad_packed_sequence
 from layers import Conv1D, Attention, ScaledDotProduct_CandidateAttention, GCN
-from util import try_to_install_torch_scatter_package
-try_to_install_torch_scatter_package()
 from torch_scatter import scatter_sum, scatter_softmax # need to be installed by following `https://pytorch-scatter.readthedocs.io/en/latest`
 from newsEncoders import NewsEncoder
 from userEncoders import UserEncoder
@@ -109,10 +107,10 @@ class NAML_Title(NewsEncoder):
         self.news_embedding_dim = config.cnn_kernel_num
         self.title_conv = Conv1D(config.cnn_method, config.word_embedding_dim, config.cnn_kernel_num, config.cnn_window_size)
         self.title_attention = Attention(config.cnn_kernel_num, config.attention_dim)
-        self.category_affine = nn.Linear(in_features=config.category_embedding_dim, out_features=config.cnn_kernel_num, bias=True)
-        self.subCategory_affine = nn.Linear(in_features=config.subCategory_embedding_dim, out_features=config.cnn_kernel_num, bias=True)
-        self.affine1 = nn.Linear(in_features=config.cnn_kernel_num, out_features=config.attention_dim, bias=True)
-        self.affine2 = nn.Linear(in_features=config.attention_dim, out_features=1, bias=False)
+        self.category_affine = nn.Linear(config.category_embedding_dim, config.cnn_kernel_num, bias=True)
+        self.subCategory_affine = nn.Linear(config.subCategory_embedding_dim, config.cnn_kernel_num, bias=True)
+        self.affine1 = nn.Linear(config.cnn_kernel_num, config.attention_dim, bias=True)
+        self.affine2 = nn.Linear(config.attention_dim, 1, bias=False)
 
     def initialize(self):
         super().initialize()
@@ -153,10 +151,10 @@ class NAML_Content(NewsEncoder):
         self.news_embedding_dim = config.cnn_kernel_num
         self.content_conv = Conv1D(config.cnn_method, config.word_embedding_dim, config.cnn_kernel_num, config.cnn_window_size)
         self.content_attention = Attention(config.cnn_kernel_num, config.attention_dim)
-        self.category_affine = nn.Linear(in_features=config.category_embedding_dim, out_features=config.cnn_kernel_num, bias=True)
-        self.subCategory_affine = nn.Linear(in_features=config.subCategory_embedding_dim, out_features=config.cnn_kernel_num, bias=True)
-        self.affine1 = nn.Linear(in_features=config.cnn_kernel_num, out_features=config.attention_dim, bias=True)
-        self.affine2 = nn.Linear(in_features=config.attention_dim, out_features=1, bias=False)
+        self.category_affine = nn.Linear(config.category_embedding_dim, config.cnn_kernel_num, bias=True)
+        self.subCategory_affine = nn.Linear(config.subCategory_embedding_dim, config.cnn_kernel_num, bias=True)
+        self.affine1 = nn.Linear(config.cnn_kernel_num, config.attention_dim, bias=True)
+        self.affine2 = nn.Linear(config.attention_dim, 1, bias=False)
 
     def initialize(self):
         super().initialize()
@@ -273,10 +271,10 @@ class CNE_wo_CA(NewsEncoder):
         # selective LSTM encoder
         self.title_lstm = nn.LSTM(self.word_embedding_dim, self.hidden_dim, batch_first=True, bidirectional=True)
         self.content_lstm = nn.LSTM(self.word_embedding_dim, self.hidden_dim, batch_first=True, bidirectional=True)
-        self.title_H = nn.Linear(in_features=self.hidden_dim * 2, out_features=self.hidden_dim * 2, bias=False)
-        self.title_M = nn.Linear(in_features=self.hidden_dim * 2, out_features=self.hidden_dim * 2, bias=True)
-        self.content_H = nn.Linear(in_features=self.hidden_dim * 2, out_features=self.hidden_dim * 2, bias=False)
-        self.content_M = nn.Linear(in_features=self.hidden_dim * 2, out_features=self.hidden_dim * 2, bias=True)
+        self.title_H = nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2, bias=False)
+        self.title_M = nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2, bias=True)
+        self.content_H = nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2, bias=False)
+        self.content_M = nn.Linear(self.hidden_dim * 2, self.hidden_dim * 2, bias=True)
         # self-attention
         self.title_self_attention = Attention(self.hidden_dim * 2, config.attention_dim)
         self.content_self_attention = Attention(self.hidden_dim * 2, config.attention_dim)
@@ -345,9 +343,9 @@ class SUE_wo_GCN(UserEncoder):
     def __init__(self, news_encoder, config):
         super(SUE_wo_GCN, self).__init__(news_encoder, config)
         self.attention_dim = max(config.attention_dim, self.news_embedding_dim // 4)
-        self.intraCluster_K = nn.Linear(in_features=self.news_embedding_dim, out_features=self.attention_dim, bias=True)
-        self.intraCluster_Q = nn.Linear(in_features=self.news_embedding_dim, out_features=self.attention_dim, bias=True)
-        self.clusterFeatureAffine = nn.Linear(in_features=self.news_embedding_dim, out_features=self.news_embedding_dim, bias=True)
+        self.intraCluster_K = nn.Linear(self.news_embedding_dim, self.attention_dim, bias=True)
+        self.intraCluster_Q = nn.Linear(self.news_embedding_dim, self.attention_dim, bias=True)
+        self.clusterFeatureAffine = nn.Linear(self.news_embedding_dim, self.news_embedding_dim, bias=True)
         self.interClusterAttention = ScaledDotProduct_CandidateAttention(self.news_embedding_dim, self.news_embedding_dim, self.attention_dim)
         self.dropout = nn.Dropout(p=config.dropout_rate, inplace=True)
         self.category_num = config.category_num + 1 # extra one category index for padding news

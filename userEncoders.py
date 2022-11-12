@@ -6,8 +6,6 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence
 from layers import MultiHeadAttention, Attention, ScaledDotProduct_CandidateAttention, CandidateAttention, GCN
 from newsEncoders import NewsEncoder, HDC
-from util import try_to_install_torch_scatter_package
-try_to_install_torch_scatter_package()
 from torch_scatter import scatter_sum, scatter_softmax # need to be installed by following `https://pytorch-scatter.readthedocs.io/en/latest`
 
 
@@ -47,9 +45,9 @@ class SUE(UserEncoder):
         self.attention_dim = max(config.attention_dim, self.news_embedding_dim // 4)
         self.proxy_node_embedding = nn.Parameter(torch.zeros([config.category_num, self.news_embedding_dim]))
         self.gcn = GCN(in_dim=self.news_embedding_dim, out_dim=self.news_embedding_dim, hidden_dim=self.news_embedding_dim, num_layers=config.gcn_layer_num, dropout=config.dropout_rate / 2, residual=not config.no_gcn_residual, layer_norm=config.gcn_layer_norm)
-        self.intraCluster_K = nn.Linear(in_features=self.news_embedding_dim, out_features=self.attention_dim, bias=False)
-        self.intraCluster_Q = nn.Linear(in_features=self.news_embedding_dim, out_features=self.attention_dim, bias=True)
-        self.clusterFeatureAffine = nn.Linear(in_features=self.news_embedding_dim, out_features=self.news_embedding_dim, bias=True)
+        self.intraCluster_K = nn.Linear(self.news_embedding_dim, self.attention_dim, bias=False)
+        self.intraCluster_Q = nn.Linear(self.news_embedding_dim, self.attention_dim, bias=True)
+        self.clusterFeatureAffine = nn.Linear(self.news_embedding_dim, self.news_embedding_dim, bias=True)
         self.interClusterAttention = ScaledDotProduct_CandidateAttention(self.news_embedding_dim, self.news_embedding_dim, self.attention_dim)
         self.dropout = nn.Dropout(p=config.dropout_rate, inplace=True)
         self.dropout_ = nn.Dropout(p=config.dropout_rate, inplace=False)
@@ -154,7 +152,7 @@ class MHSA(UserEncoder):
     def __init__(self, news_encoder: NewsEncoder, config: Config):
         super(MHSA, self).__init__(news_encoder, config)
         self.multiheadAttention = MultiHeadAttention(config.head_num, self.news_embedding_dim, config.max_history_num, config.max_history_num, config.head_dim, config.head_dim)
-        self.affine = nn.Linear(in_features=config.head_num*config.head_dim, out_features=self.news_embedding_dim, bias=True)
+        self.affine = nn.Linear(config.head_num*config.head_dim, self.news_embedding_dim, bias=True)
         self.attention = Attention(self.news_embedding_dim, config.attention_dim)
 
     def initialize(self):
@@ -196,8 +194,8 @@ class ATT(UserEncoder):
 class CATT(UserEncoder):
     def __init__(self, news_encoder: NewsEncoder, config: Config):
         super(CATT, self).__init__(news_encoder, config)
-        self.affine1 = nn.Linear(in_features=self.news_embedding_dim * 2, out_features=config.attention_dim, bias=True)
-        self.affine2 = nn.Linear(in_features=config.attention_dim, out_features=1, bias=True)
+        self.affine1 = nn.Linear(self.news_embedding_dim * 2, config.attention_dim, bias=True)
+        self.affine2 = nn.Linear(config.attention_dim, 1, bias=True)
         self.max_history_num = config.max_history_num
 
     def initialize(self):
@@ -267,7 +265,7 @@ class FIM(UserEncoder):
 class PUE(UserEncoder):
     def __init__(self, news_encoder: NewsEncoder, config: Config):
         super(PUE, self).__init__(news_encoder, config)
-        self.dense = nn.Linear(in_features=config.user_embedding_dim, out_features=config.personalized_embedding_dim, bias=True)
+        self.dense = nn.Linear(config.user_embedding_dim, config.personalized_embedding_dim, bias=True)
         self.personalizedAttention = CandidateAttention(self.news_embedding_dim, config.personalized_embedding_dim, config.attention_dim)
 
     def initialize(self):
@@ -290,7 +288,7 @@ class GRU(UserEncoder):
     def __init__(self, news_encoder: NewsEncoder, config: Config):
         super(GRU, self).__init__(news_encoder, config)
         self.gru = nn.GRU(self.news_embedding_dim, config.hidden_dim, batch_first=True)
-        self.dec = nn.Linear(in_features=config.hidden_dim, out_features=self.news_embedding_dim, bias=True)
+        self.dec = nn.Linear(config.hidden_dim, self.news_embedding_dim, bias=True)
 
     def initialize(self):
         for parameter in self.gru.parameters():
